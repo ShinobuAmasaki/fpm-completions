@@ -1,3 +1,5 @@
+![demo](https://github.com/ShinobuAmasaki/fpm-completions/assets/100006043/635de99f-e562-4d86-b05c-92697fe075f0)
+
 # fpm-completions
 Command-line completion functions for the Fortran Package Manager.
 
