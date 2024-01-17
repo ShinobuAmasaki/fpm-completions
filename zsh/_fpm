@@ -1,0 +1,539 @@
+#compdef fpm
+
+echo_if_exist() {
+	type $1 > /dev/null 2>&1 && echo $1
+}
+
+get_fortran_compilers() {
+	local -a fc_list
+	fc_list=( "gfortran" "ifort" "ifx" "pgfortran" "nvfortran" "flang" \
+				 "lfortran" "lfc" "nagfor" "crayftn" "xlf90" "ftn95"      \
+				 "mpifort" "mpif90" "mpif77" "caf" \
+	)
+	for element in "${fc_list[@]}"; do
+		echo_if_exist "$element"
+	done
+}
+
+get_c_compilers() {
+	local -a cc_list
+	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc"  \
+				 "mpicc" \
+	) 
+	for element in "${cc_list[@]}"; do
+		echo_if_exist "$element"
+	done
+}
+
+get_cxx_compilers() {
+	local -a cxx_list
+	cxx_list=( "g++" "icx" "clang++" "mpic++")
+	for element in "${cxx_list[@]}"; do
+		echo_if_exist "$element"
+	done
+}
+
+get_archivers() {
+	local -a ar_list
+	ar_list=( "ar" )
+	for element in "${ar_list[@]}"; do
+		echo_if_exist "$element"
+	done
+}
+
+get_runner_commands() {
+	local -a runners
+	runners=( "cafrun" "mpiexec" "mpirun" "gdb" "valgrind" )
+	for element in "${runners[@]}"; do
+		echo_if_exist "$element"
+	done
+}
+
+find_manifest_dir() {
+	current=$(pwd)
+
+	while [ "$current" != "/" ]; do
+		# Is fpm.toml exist?
+		if [ -e "$current/fpm.toml" ]; then
+			echo "$current"
+			return 0
+		else
+			current=$(dirname "$current")
+		fi
+	done
+
+	return 1
+}
+
+build_dir_analysis() {
+	local proj_dir=$(find_manifest_dir)
+
+	if [ $? -eq 1 ]; then
+		return 1
+	fi
+
+	local build_dir="$proj_dir/build"
+
+	if [ ! -e $build_dir ]; then
+		return 
+	fi
+
+	local -a executables=($(find $(find "$build_dir" -type d -name app) -type f -executable))
+	
+	if [[ -z "$executables[*]" ]]; then
+		return
+	fi
+
+	for element in "${executables[@]}"; do 
+	 	echo $(basename $element)
+	done
+
+}
+
+build_dir_analysis_test() {
+	local proj_dir=$(find_manifest_dir)
+
+	if [ $? -eq 1 ]; then
+		return 1
+	fi
+
+	local build_dir="$proj_dir/build"
+
+	if [ ! -e $build_dir ]; then
+		return 
+	fi
+
+	local -a tests=($(find $(find "$build_dir" -type d -name test) -type f -executable))
+	
+	if [[ -z "$tests[*]" ]]; then
+		return
+	fi
+
+	for element in "${tests[@]}"; do 
+	 	echo $(basename $element)
+	done
+
+}
+
+build_dir_analysis_example() {
+	local proj_dir=$(find_manifest_dir)
+
+	if [ $? -eq 1 ]; then
+		return 1
+	fi
+
+	local build_dir="$proj_dir/build"
+
+	if [ ! -e $build_dir ]; then
+		return
+	fi
+
+	local -a expls=($(find $(find "$build_dir" -type d -name example) -type f -executable))
+
+	if [[ -z "$expls[*]" ]]; then
+		return
+	fi
+
+	for element in "${expls[@]}"; do 
+	 	echo $(basename $element)
+	done
+
+}
+
+_fpm_new() {
+
+	local context state state_descr line
+	typeset -A opt_args
+
+  	_arguments \
+		'2: :->name'\
+		'--backfill[for the pre-exist directory.]' \
+		'--full[a much more extensive manifest sample and populated.]' \
+		'--bare[a minimal manifest file and README.md file created.]' \
+		'--app[create directory app/ and a placeholder main program.]' \
+		'(--src --lib)'{-src,--lib}'[create directory src/ and a placeholder module file.]' \
+		'--test[create directory test/ and a placeholder program.]' \
+		'--example[create directory example/ and a placeholder program.]'
+
+}
+
+# Problem where the continuation of 'fpm build --list' is not completed.
+# Expecting '--tests' to be completed.
+_fpm_build() {
+
+	local context state state_descr line
+	typeset -A opt_args
+	
+	_arguments -S \
+			'--tests[build all tests (otherwise only if needed).]' \
+		- set_for_list \
+			'--list[list candidates instead of building them.]: :->list' \
+		- set_for_build \
+			'--profile[select the compilation profile for the build.]: :->profile'\
+			'--compiler[specify a compiler name.]: :->FC'  \
+			'--c-compiler[specify the C compiler name.]: :->CC' \
+	 		'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
+			'--archiver[sp ecify the archiver name.]: :->AR' \
+			'--flag[selects compile arguments for the build.]: :->FFLAGS'  \
+			'--c-flag[selects compile arguments specific for C source.]: :->CFLAGS'  \
+			'--cxx-flag[selects compile arguments specific for C++ source.]: :->CXXFLAGS' \
+			'--link-flag[selects arguments passed to the linker for the build.]: :->LDFLAGS' \
+			'--show-model[show the model and exit (do not build).]' \
+			'--help[print help message and exit.]: :->help'
+
+
+		case "$state" in
+			(profile)
+				local -a profs
+				profs=( "debug" "release" )
+				_values 'profiles' $profs
+				;;
+			(list)
+				if [[ "$word[*]" != *--tests* ]]; then
+					_message "--list option can only be specified together with --test option"
+					_values 'list' '--tests'
+				fi
+				;;	
+			(FC)
+				local -a compilers
+ 				compilers=($(get_fortran_compilers))
+				_values 'Fortran Compiler' $compilers
+				;;
+			(CC)
+				local -a c_compilers
+				c_compilers=($(get_c_compilers))
+				_values 'C Compiler' $c_compilers
+				;;
+			(CXX)
+				local -a cxx_compilers
+				cxx_compilers=($(get_cxx_compilers))
+				_values "C++ Compiler" $cxx_compilers
+				;;
+			(AR)
+				local -a archivers
+				archivers=($(get_archivers))
+				_values "Archiver" $archivers
+				;;
+			(FFLAGS)
+				_message "Select compile arguments for the build."
+				;;
+			(CFLAGS)
+				_message "Select compile arguments specific for C source in the build."
+				;;
+			(CXXFLAGS)
+				_message "Select compile arguments specific for C++ source in the build."
+				;;
+			(LDFLAGS)
+				_message "Select arguments passed to the linker for the build."
+				;;
+			(help)
+				_message "Print the help message."
+				;;
+		esac
+	
+}
+
+_fpm_run() {
+
+	local context state state_descr line
+	typeset -A opt_args
+	_arguments \
+		+ '(trgt)'\
+			'--example[run example programs instead of applications.]: :->example' \
+			'*: :->target'\
+		- set_for_list \
+			'--list[list basenames of candidates instead of runnning them.]' \
+		- set_for_run \
+			'--profile[selects the compilation profile for the build.]: :->profile' \
+			'--target[list of application names to execute.]: :->target' \
+			'--all[run all examples or applications.]' \
+			'--compiler[specify a compiler name.]: :->FC' \
+			'--c-compiler[specify the C compiler name.]: :->CC' \
+			'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
+			'--archiver[sprcify the archiver name.]: :->AR' \
+			'--flag[select compile arguments for the build.]: :->FFLAGS'\
+			'--c-flag[select compile argument specific for C sources.]: :->CFLAGS' \
+			'--cxx-flag[select compile argument specific for C++ sources.]: :->CXXFLAGS' \
+			'--link-flag[select arguments passed to the linker for the build.]: :->LDFLAGS' \
+			'--runner[A command to prefix the program execution paths with.]: :->runner' \
+			'--runner-args[an additional option to pass command-line arguments to the runner command.]: :->runnerargs' \
+			'--help[print help message and exit.]: :->help' \
+			'--[optional arguments to pass the program(s).]: :->arg'
+
+	case "$state" in
+		(target)
+			_message "List of application names to execute."
+			local -a targets
+			targets=($(build_dir_analysis))
+			if [[ -n "$targets[*]" ]]; then
+				_values 'target' $targets
+			fi
+			;;
+		(example)
+			_message "List of application names to execute."
+			local -a targets
+			targets=($(build_dir_analysis_example))
+			if [[ -n "$targets[*]" ]]; then
+				_values 'target' $targets
+			fi
+			;;
+		(arg)
+			_message "Optional arguments ARG to pass the program(s)."
+			;;
+		(profile)
+			local -a profs
+			profs=( "debug" "release" )
+			_values 'Profile' $profs
+			;;
+		(runner)
+			_fpm_run_runner
+			;;
+		(runnerargs)
+			_message "Pass command-line arguments to the runner command, instead of to the fpm app."
+			;;
+		(FC)
+			local -a compilers
+			compilers=($(get_fortran_compilers))
+			_values 'Fortran Compiler' $compilers
+			;;
+		(CC)
+			local -a c_compilers
+			c_compilers=($(get_c_compilers))
+			_values 'C Compiler' $c_compilers
+			;;
+		(CXX)
+			local -a cxx_compilers
+			cxx_compilers=($(get_cxx_compilers))
+			_values "C++ Compiler" $cxx_compilers
+			;;
+		(AR)
+			local -a archivers
+			archivers=($(get_archivers))
+			_values "Archiver" $archivers
+			;;
+		(FFLAGS)
+			_message "Select compile arguments for the build."
+			;;
+		(CFLAGS)
+			_message "Select compile arguments specific for C source in the build."
+			;;
+		(CXXFLAGS)
+			_message "Select compile arguments specific for C++ source in the build."
+			;;
+		(LDFLAGS)
+			_message "Select arguments passed to the linker for the build."
+			;;
+		(help)
+			_message "Print the help message."
+			;;
+	esac
+}
+
+_fpm_run_runner() {
+	local -a runners
+	runners=($(get_runner_commands))
+	_values "runner" $runners
+}
+
+_fpm_test() {
+	local context state state_descr line
+	typeset -A opt_args
+
+	_arguments \
+		+ '(trgt)'\
+			'*: :->target'\
+		- set_for_list \
+			'--list[list basenames of candidates instead of runnning them.]' \
+		- set_for_test \
+			'--profile[selects the compilation profile for the build.]: :->profile' \
+			'--target[list of application names to execute.]: :->target' \
+			'--all[run all examples or applications.]' \
+			'--compiler[specify a compiler name.]: :->FC' \
+			'--c-compiler[specify the C compiler name.]: :->CC' \
+			'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
+			'--archiver[sprcify the archiver name.]: :->AR' \
+			'--flag[select compile arguments for the build.]: :->FFLAGS'\
+			'--c-flag[select compile argument specific for C sources.]: :->CFLAGS' \
+			'--cxx-flag[select compile argument specific for C++ sources.]: :->CXXFLAGS' \
+			'--link-flag[select arguments passed to the linker for the build.]: :->LDFLAGS' \
+			'--runner[A command to prefix the program execution paths with.]: :->runner' \
+			'--runner-args[an additional option to pass command-line arguments to the runner command.]: :->runnerargs' \
+			'--help[print help message and exit.]: :->help' \
+			'--[optional arguments to pass the program(s).]: :->arg'
+	
+	case "$state" in
+		(target)
+			_message "List of application names to execute."
+			local -a targets
+			targets=($(build_dir_analysis_test))
+			if [[ -n "$targets[*]" ]]; then
+				_values 'target' $targets
+			fi
+			;;
+		(arg)
+			_message "Optional arguments ARG to pass the program(s)."
+			;;
+		(profile)
+			local -a profs
+			profs=( "debug" "release" )
+			_values 'Profile' $profs
+			;;
+		(runner)
+			_fpm_run_runner
+			;;
+		(runnerargs)
+			_message "Pass command-line arguments to the runner command, instead of to the fpm app."
+			;;
+		(FC)
+			local -a compilers
+			compilers=($(get_fortran_compilers))
+			_values 'Fortran Compiler' $compilers
+			;;
+		(CC)
+			local -a c_compilers
+			c_compilers=($(get_c_compilers))
+			_values 'C Compiler' $c_compilers
+			;;
+		(CXX)
+			local -a cxx_compilers
+			cxx_compilers=($(get_cxx_compilers))
+			_values "C++ Compiler" $cxx_compilers
+			;;
+		(AR)
+			local -a archivers
+			archivers=($(get_archivers))
+			_values "Archiver" $archivers
+			;;
+		(FFLAGS)
+			_message "Select compile arguments for the build."
+			;;
+		(CFLAGS)
+			_message "Select compile arguments specific for C source in the build."
+			;;
+		(CXXFLAGS)
+			_message "Select compile arguments specific for C++ source in the build."
+			;;
+		(LDFLAGS)
+			_message "Select arguments passed to the linker for the build."
+			;;
+		(help)
+			_message "Print the help message."
+			;;
+	esac
+
+}
+
+# Problem where the continuation of 'fpm install --list' is not completed.
+# Expecting '--verbose' to be completed.
+_fpm_install() {
+
+	local context state state_descr line
+	typeset -A opt_args
+
+	_arguments \
+			'--verbose[print more information.]'\
+		- set_for_list\
+			'--list[list all installable targets for this project, but do not install any of them]'\
+		- set_for_install\
+			'--profile[selects the compilation profile for the build.]: :->profile'\
+			'--no-prune[Disables tree-shaking/pruning of unused module dependencies.]'\
+			'--flag[selects compile arguments for the build.]: :->FFLAGS'\
+			'--c-flag[selects compile arguments specific for C source in the build.]: :->CFLAGS'\
+			'--cxx-flag[selects compile arguments specific for C++ source in the build.]: :->CXXFLAGS'\
+			'--link-flag[selects arguments passed to the linker for the build.]: :->LDFLAGS'\
+			'--no-rebuild[do not rebuild project before installation.]'\
+			'--prefix[path to installation directory (requires write access).]: :->prefix'\
+			'--bindir[subdirectory to place executables in (default: bin).]: :->bindir'\
+			'--libdir[subdirectory to place libraries and archives in (default: lib).]: :->libdir'\
+			'--includedir[subdirectory to place headers and module files in (default: include).]: :->includedir'\
+		
+		case "$state" in
+			(profile)
+				local -a profs
+				profs=( "debug" "release" )
+				_values 'Profile' $profs
+				;;
+			(prefix)
+				_path_files -/
+				;;
+			(bindir)
+				_path_files -/
+				;;
+			(libdir)
+				_path_files	-/
+				;;
+			(includedir)
+				_path_files -/
+				;; 
+			(FFLAGS)
+				_message "Select compile arguments for the build."
+				;;
+			(CFLAGS)
+				_message "Select compile arguments specific for C source in the build."
+				;;
+			(CXXFLAGS)
+				_message "Select compile arguments specific for C++ source in the build."
+				;;
+			(LDFLAGS)
+				_message "Select arguments passed to the linker for the build."
+				;;
+			(help)
+				_message "Print the help message."
+				;;
+		esac
+}
+
+_fpm() {
+	local context state state_descr line
+	typeset -A opt_args
+	local commands=("new" "build" "run" "test" "install" "list" "clean" "publish" "help")
+
+	_arguments -C \
+		'1: :->command' \
+		'*:: :->args' \
+		'--list[a brief list of subcommand options.]'
+	
+	case "$state" in
+		(command)
+			_values 'commands' $commands
+			;;
+		(args)
+			case "$line[1]" in
+				(new)
+					_fpm_new
+					;;
+				(build)
+					_fpm_build
+					;;
+				(run)
+					_fpm_run
+					;;
+				(test)
+					_fpm_test
+					;;
+				(install)
+					_fpm_install
+					;;
+				(list)
+					_message "list takes no aruguments"
+					;;
+				(clean)
+					_arguments \
+					   - for_skip\
+							'--skip[delete the build without prompting but skip dependencies]'\
+						- for_all \
+							'--all[delete the build without prompting including dependencies]'
+					;;
+				(publish)
+					_message "Completion for the sub-command publish is not yet provided."
+					;;
+				(help)
+					_values 'command' $commands "runner"
+					;;
+			esac
+			;;
+	esac
+}
+
+compdef _fpm fpm
+
