@@ -20,12 +20,6 @@ Finally, reload the shell.
 % exec -l $SHELL
 ```
 
-or,
-
-```shell 
-unfunction _fpm && autoload -U _fpm
-```
-
 For example, if you place the `_zsh` file in `~/zsh/functions`, the `~/.zshrc` will be like this:
 
 ```shell
