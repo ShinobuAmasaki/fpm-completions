@@ -151,10 +151,9 @@ _fpm_new() {
 		'--full[a much more extensive manifest sample and populated.]' \
 		'--bare[a minimal manifest file and README.md file created.]' \
 		'--app[create directory app/ and a placeholder main program.]' \
-		'(--src --lib)'{-src,--lib}'[create directory src/ and a placeholder module file.]' \
+		'(--src --lib)'{--src,--lib}'[create directory src/ and a placeholder module file.]' \
 		'--test[create directory test/ and a placeholder program.]' \
 		'--example[create directory example/ and a placeholder program.]'
-
 }
 
 # Problem where the continuation of 'fpm build --list' is not completed.
