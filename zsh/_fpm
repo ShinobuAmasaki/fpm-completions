@@ -173,7 +173,7 @@ _fpm_build() {
 			'--compiler[specify a compiler name.]: :->FC'  \
 			'--c-compiler[specify the C compiler name.]: :->CC' \
 	 		'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
-			'--archiver[sp ecify the archiver name.]: :->AR' \
+			'--archiver[specify the archiver name.]: :->AR' \
 			'--flag[selects compile arguments for the build.]: :->FFLAGS'  \
 			'--c-flag[selects compile arguments specific for C source.]: :->CFLAGS'  \
 			'--cxx-flag[selects compile arguments specific for C++ source.]: :->CXXFLAGS' \
