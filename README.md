@@ -7,7 +7,7 @@ Command-line completion functions for the Fortran Package Manager.
 
 Zsh is required to use this package, currently.
 
-Place the `_zsh` file in the `zsh/` directory in the directory described in the shell variable `fpath`.
+Put the `_zsh` file in the `zsh/` directory into the directory described in the shell variable `fpath`.
 
 Furthermore, add the following to `~/.zshrc`:
 ```shell
@@ -16,7 +16,7 @@ compinit -u
 ```
 
 Finally, reload the shell.
-```
+```shell
 % exec -l $SHELL
 ```
 
