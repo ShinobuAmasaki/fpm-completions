@@ -344,12 +344,12 @@ _fpm() {
 							;;
 						--target)
 							local targets=($(build_dir_analysis))
-							COMPREPLY=( $(compgen -W '${target[*]}' -- "$cur" ))
+							COMPREPLY=( $(compgen -W '${targets[*]}' -- "$cur" ))
 							return 
 							;;
 						--example)
 							local targets=( $(build_dir_analysis_example))
-							COMPREPLY=( $(compgen -W '${target[*]}' -- "$cur" ))
+							COMPREPLY=( $(compgen -W '${targets[*]}' -- "$cur" ))
 							return
 							;;
 						--profile)
@@ -401,7 +401,67 @@ _fpm() {
 					esac
                ;;
             test)
-               ;;
+					local all_opts=("--target" "--profile" "--no-prune" "--compiler" "--c-compiler" "--cxx-compiler" "--archiver" "--flag" "--c-flag" "--cxx-flag" \
+										 "--link-flag" "--list" "--help" "--version" "--runner" "--runner-args" "--" )
+               case $prev in
+						run)
+							local targets=($(build_dir_ analysis_test))
+							COMPREPLY=( $(compgen -W '${targets[*]} ${all_opts[*]}' -- "$cur"))
+							return
+							;;
+						--target)
+							local targets=($(build_dir_analysis_test))
+							COMPREPLY=( $(compgen -W '${targets[*]}' -- "$cur" ))
+							return 
+							;;
+						--profile)
+							COMPREPLY=( $(compgen -W '${profs[*]}' -- "$cur" ))
+							return
+							;;
+						--compiler)
+							local compilers=( $(get_fortran_compilers))
+							COMPREPLY=( $(compgen -W '${compilers[*]}' -- "$cur" ))
+							return
+							;;
+						--c-compiler)
+							local compilers=( $(get_c_compilers) )
+							COMPREPLY=( $(compgen -W '${compilers[*]}' -- "$cur" ))
+							return
+							;; 
+						--cxx-compiler)
+							local compilers=( $(get_cxx_compilers) )
+							COMPREPLY=( $(compgen -W '${compilers[*]}' -- "$cur" ))
+							return
+							;;
+						--archiver)
+							local archivers=( $(get_archivers) )
+							COMPREPLY=( $(compgen -W '${archivers[*]}' -- "$cur" ))
+							return
+							;;
+						--flag|--c-flag|--cxx-flag|--link-flag)
+							return 
+							;;
+						--runner)
+							local runners=($(get_runner_commands))
+							COMPREPLY=( $(compgen -W '${runners[*]}' -- "$cur" ))
+							return
+							;; 
+						--runner-args)
+							return
+							;;
+						*)
+							local opts=()
+							for opt in "${all_opts[@]}"; do
+								if [[ ! "${words[@]}" =~ "$opt" ]]; then								
+									opts+=( "$opt" )
+								fi
+							done
+
+							COMPREPLY=( $(compgen -W '${opts[*]}' -- "$cur" ))
+							return
+							;;
+					esac
+					;;
          esac
          ;;
    esac
