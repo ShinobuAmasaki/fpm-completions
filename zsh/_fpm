@@ -1,5 +1,12 @@
 #compdef fpm
 
+#
+# fpm-completions for zsh
+#
+# Copyright 2024, Amasaki Shinobu
+#
+# This script is distributed under the MIT license.
+
 echo_if_exist() {
 	type $1 > /dev/null 2>&1 && echo $1
 }
