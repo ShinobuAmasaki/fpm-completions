@@ -19,7 +19,7 @@ $ exec -l $SHELL
 
 This package also provides a completion script for Zsh.
 
-Put the `_zsh` file in the `zsh/` directory into the directory described in the shell variable `fpath`.
+Put the `_fpm` file in the `zsh/` directory into the directory described in the shell variable `fpath`.
 
 Furthermore, add the following to `~/.zshrc`:
 ```shell
@@ -32,7 +32,7 @@ Finally, reload the shell.
 % exec -l $SHELL
 ```
 
-For example, if you place the `_zsh` file in `~/zsh/functions`, the `~/.zshrc` will be like this:
+For example, if you place the `_fpm` file in `~/zsh/functions`, the `~/.zshrc` will be like this:
 
 ```shell
 fpath=( "$HOME/zsh/functions" "${fpath[@]}" )
