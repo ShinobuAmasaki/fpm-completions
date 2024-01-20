@@ -4,7 +4,7 @@
 Command-line completion functions for the Fortran Package Manager.
 
 ## Bash
-This package provides a completion script for bash. 
+This package provides a completion script for bash.
 
 To use the script `bash/fpm.bash`, Bash (v4.x, or newer) and bash-completion(v2.x, or newer) are required.
 
@@ -40,7 +40,7 @@ autoload -Uz compinit
 compinit -u
 ```
 
-Don't forget to reload the shell. 
+Don't forget to reload the shell.
 ```shell
 % exec -l $SHELL
 ```
