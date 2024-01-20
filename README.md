@@ -14,7 +14,8 @@ To use the script `bash/fpm.bash`, Bash (v4.x, or newer) and bash-completion
 Put the `fpm.bash` file in the `bash/` directory into the directory
 `~/.local/share/bash-completion/completions`.
 
-Then, reload the shell.
+Then, reload the shell:
+
 ```shell
 $ exec -l $SHELL
 ```
@@ -27,12 +28,14 @@ Put the `_fpm` file in the `zsh/` directory into the directory described in the
 shell variable `fpath`.
 
 Furthermore, add the following to `~/.zshrc`:
+
 ```shell
 autoload -Uz compinit
 compinit -u
 ```
 
 Finally, reload the shell.
+
 ```shell
 % exec -l $SHELL
 ```
@@ -47,6 +50,7 @@ compinit -u
 ```
 
 Don't forget to reload the shell.
+
 ```shell
 % exec -l $SHELL
 ```
