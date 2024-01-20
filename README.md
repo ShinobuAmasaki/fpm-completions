@@ -1,9 +1,11 @@
 ![demo](https://github.com/ShinobuAmasaki/fpm-completions/assets/100006043/635de99f-e562-4d86-b05c-92697fe075f0)
 
 # fpm-completions
+
 Command-line completion functions for the Fortran Package Manager.
 
 ## Bash
+
 This package provides a completion script for bash.
 
 To use the script `bash/fpm.bash`, Bash (v4.x, or newer) and bash-completion
