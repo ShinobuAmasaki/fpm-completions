@@ -6,9 +6,11 @@ Command-line completion functions for the Fortran Package Manager.
 ## Bash
 This package provides a completion script for bash.
 
-To use the script `bash/fpm.bash`, Bash (v4.x, or newer) and bash-completion(v2.x, or newer) are required.
+To use the script `bash/fpm.bash`, Bash (v4.x, or newer) and bash-completion
+(v2.x, or newer) are required.
 
-Put the `fpm.bash` file in the `bash/` directory into the directory `~/.local/share/bash-completion/completions`.
+Put the `fpm.bash` file in the `bash/` directory into the directory
+`~/.local/share/bash-completion/completions`.
 
 Then, reload the shell.
 ```shell
@@ -19,7 +21,8 @@ $ exec -l $SHELL
 
 This package also provides a completion script for Zsh.
 
-Put the `_fpm` file in the `zsh/` directory into the directory described in the shell variable `fpath`.
+Put the `_fpm` file in the `zsh/` directory into the directory described in the
+shell variable `fpath`.
 
 Furthermore, add the following to `~/.zshrc`:
 ```shell
@@ -32,7 +35,8 @@ Finally, reload the shell.
 % exec -l $SHELL
 ```
 
-For example, if you place the `_fpm` file in `~/zsh/functions`, the `~/.zshrc` will be like this:
+For example, if you place the `_fpm` file in `~/zsh/functions`, the `~/.zshrc`
+will be like this:
 
 ```shell
 fpath=( "$HOME/zsh/functions" "${fpath[@]}" )
