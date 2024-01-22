@@ -81,7 +81,7 @@ build_dir_analysis() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e "$build_dir" ]; then
+	if [ ! -e "$build_dir" ] || [ "$build_dir" == '' ]; then
 		return 
 	fi
 	
@@ -104,7 +104,7 @@ build_dir_analysis() {
 }
 
 build_dir_analysis_test() {
-	local -a proj_dir
+	local -a proj_d
 	proj_dir=$(find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
@@ -113,7 +113,7 @@ build_dir_analysis_test() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e "$build_dir" ]; then
+	if [ ! -e "$build_dir" ] || [ "$build_dir" == '' ]; then
 		return 
 	fi
 
@@ -145,7 +145,7 @@ build_dir_analysis_example() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e "$build_dir" ]; then
+	if [ ! -e "$build_dir" ] || [ "$build_dir" == '' ]; then
 		return
 	fi
 
@@ -167,7 +167,20 @@ build_dir_analysis_example() {
 
 }
 
+get_rightmost_option() {
+	local words=($@)
+	
+	local ret
 
+	for element in "${words[@]}"; do
+		if [[ "$element" =~ '^--' ]]; then
+			ret=$element
+		fi
+	done
+
+	echo $ret
+
+}
 
 _fpm() {
    local cur prev words cword split
@@ -241,6 +254,24 @@ _fpm() {
                      return
                      ;;
 						*)
+							# Suggest multiple target specifications.
+							rightmost_option=$(get_rightmost_option "${words[@]}")
+							if [[ "$rightmost_option" == "--target" ]] || [[ "$rightmost_option" == '' ]]; then
+								local -a targets 
+								mapfile -t targets <<< "$(build_dir_analysis)"
+								
+								# Remove already specified target from array.
+								for i in "${!targets[@]}"; do
+									if [[ "${words[*]}" =~ "${targets[$i]}" ]]; then
+										unset 'targets[i]'
+									fi
+								done
+								
+								COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
+								return
+							fi 
+
+							# Suggest options other than those already specified.
 							local opts=()
 							for opt in "${all_opts[@]}"; do
 								if [[ ! "${words[*]}" =~ $opt ]]; then
