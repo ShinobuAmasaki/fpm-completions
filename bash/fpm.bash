@@ -81,7 +81,7 @@ build_dir_analysis() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e "$build_dir" ] || [ "$build_dir" == '' ]; then
+	if [ ! -e "$build_dir" ] || [ "$build_dir" == "" ]; then
 		return 
 	fi
 	
@@ -90,6 +90,9 @@ build_dir_analysis() {
 
 	local -a executables
 	for dir in "${app_dirs[@]}"; do
+		if [ "$dir" == "" ]; then
+			continue
+		fi
 		executables+=($(find "$dir" -type f -executable))
 	done
 	
@@ -122,6 +125,9 @@ build_dir_analysis_test() {
 
 	local -a tests
 	for dir in "${test_dir[@]}"; do
+		if [ "$dir" == "" ]; then
+			continue
+		fi
 		tests+=( $(find "$dir" -type f -executable) )
 	done 
 	
@@ -154,6 +160,9 @@ build_dir_analysis_example() {
 
 	local -a expls
 	for dir in "${expls_dir[@]}"; do
+		if [ "$dir" == "" ]; then
+			continue
+		fi
 		expls+=($(find "$dir" -type f -executable))
 	done 
 
@@ -256,15 +265,17 @@ _fpm() {
 						*)
 							# Suggest multiple target specifications.
 							rightmost_option=$(get_rightmost_option "${words[@]}")
-							if [[ "$rightmost_option" == "--target" ]] || [[ "$rightmost_option" == '' ]]; then
+							if [[ "$rightmost_option" == '' ]]; then
 								local -a targets 
 								mapfile -t targets <<< "$(build_dir_analysis)"
 								
 								# Remove already specified target from array.
 								for i in "${!targets[@]}"; do
-									if [[ "${words[*]}" =~ "${targets[$i]}" ]]; then
-										unset 'targets[i]'
-									fi
+									for element in "${words[@]}"; do
+										if [[ "$element" == "${targets[$i]}" ]]; then
+											unset 'targets[i]'
+										fi
+									done
 								done
 								
 								COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
@@ -447,6 +458,26 @@ _fpm() {
 							return
 							;;
 						*)
+							# Suggest multiple target specifications.
+							rightmost_option=$(get_rightmost_option "${words[@]}")
+							if [[ "$rightmost_option" == "--target" ]] || [[ "$rightmost_option" == '' ]]; then
+								local -a targets 
+								mapfile -t targets <<< "$(build_dir_analysis)"
+								
+								# Remove already specified target from array.
+								for i in "${!targets[@]}"; do
+									for element in "${words[@]}"; do
+										if [[ "$element" == "${targets[$i]}" ]]; then
+											unset 'targets[i]'
+										fi
+									done
+								done
+								
+								COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
+								return
+							fi
+
+							# Suggest options other than those already specified.
 							local opts=()
 							for opt in "${all_opts[@]}"; do
 								if [[ ! "${words[*]}" =~ $opt ]]; then								
@@ -464,7 +495,7 @@ _fpm() {
 										 "--link-flag" "--list" "--help" "--version" "--runner" "--runner-args" "--" )
                case $prev in
 						run)
-							local targets=($(build_dir_ analysis_test))
+							local targets=($(build_dir_analysis_test))
 							COMPREPLY=( $(compgen -W '${targets[*]} ${all_opts[*]}' -- "$cur"))
 							return
 							;;
@@ -508,7 +539,28 @@ _fpm() {
 						--runner-args)
 							return
 							;;
-						*)
+						*)	
+							# Suggest multiple target specifications.
+							rightmost_option=$(get_rightmost_option "${words[@]}")
+							if [[ "$rightmost_option" == "--target" ]] || [[ "$rightmost_option" == '' ]]; then
+								local -a targets 
+								mapfile -t targets <<< "$(build_dir_analysis_test)"
+ 
+								# Remove already specified target from array.
+								for i in "${!targets[@]}"; do
+									for element in "${words[@]}"; do
+										
+										if [[ "$element" == "${targets[$i]}" ]]; then
+											unset 'targets[i]'
+										fi
+									done
+								done
+								
+								COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
+								return
+							fi
+
+							# Suggest options other than those already specified.
 							local opts=()
 							for opt in "${all_opts[@]}"; do
 								if [[ ! "${words[*]}" =~ $opt ]]; then								
