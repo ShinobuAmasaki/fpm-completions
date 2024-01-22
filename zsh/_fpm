@@ -287,6 +287,13 @@ _fpm_run() {
 
 	case "$state" in
 		(target)
+			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
+				local -a user_cmds
+				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
+				_values 'commands' $user_cmds
+				return
+			fi
+
 			_message "List of application names to execute."
 			local -a targets
 			targets=($(build_dir_analysis))
