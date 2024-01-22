@@ -159,7 +159,12 @@ _fpm() {
 
    case $cword in
       1)
-         COMPREPLY=( $(compgen -W 'build clean help install list new publish run test' -- "$cur") )
+		 if [[ "$prev" == "fpm" && "$cur" == "@"* ]]; then
+			commands=$(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-)
+			COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+		 else
+         	COMPREPLY=( $(compgen -W 'build clean help install list new publish run test' -- "$cur") )
+		 fi
          ;;
       *)
          case ${words[1]} in
