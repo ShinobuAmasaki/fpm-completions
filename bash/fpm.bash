@@ -98,7 +98,7 @@ build_dir_analysis() {
 	fi
 
 	for element in "${executables[@]}"; do 
-	 	echo "$(basename $element)"
+	 	basename "$element"
 	done
 
 }
@@ -130,13 +130,14 @@ build_dir_analysis_test() {
 	fi
 
 	for element in "${tests[@]}"; do 
-	 	echo $(basename $element)
+	 	basename "$element"
 	done
 
 }
 
 build_dir_analysis_example() {
-	local proj_dir=$(find_manifest_dir)
+	local proj_dir
+	proj_dir=$(find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -161,7 +162,7 @@ build_dir_analysis_example() {
 	fi
 
 	for element in "${expls[@]}"; do 
-	 	echo $(basename "$element" )
+	 	basename "$element"
 	done
 
 }
@@ -193,7 +194,9 @@ _fpm() {
 								 "--link-flag"	"--list" "--tests" "--show-model" "--help" "--version" )
 					case $prev in
 						build)
-							targets=($(build_dir_analysis))
+							# local targets=($(build_dir_analysis))
+							local -a targets 
+							mapfile -t targets <<< "$(build_dir_analysis)"
 							COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
 							return
 							;;
@@ -206,22 +209,22 @@ _fpm() {
                      return
                      ;;
 						--compiler)
-							compilers=($(get_fortran_compilers))
+							local compilers=($(get_fortran_compilers))
 							COMPREPLY=( $(compgen -W '${compilers[@]}' -- "$cur") )
 							return
 							;;
 						--c-compiler)
-							compilers=($(get_c_compilers))
+							local compilers=($(get_c_compilers))
 							COMPREPLY=( $(compgen -W '${compilers[@]}' -- "$cur") )
 							return
 							;;
 						--cxx-compiler)
-							compilers=($(get_cxx_compilers))
+							local compilers=($(get_cxx_compilers))
 							COMPREPLY=( $(compgen -W '${compilers[@]}' -- "$cur") )
 							return
 							;;
 						--archiver)
-							archivers=($(get_archivers))
+							local archivers=($(get_archivers))
 							COMPREPLY=( $(compgen -W '${archivers[@]}' -- "$cur") )
 							return 
 							;;
@@ -240,7 +243,7 @@ _fpm() {
 						*)
 							local opts=()
 							for opt in "${all_opts[@]}"; do
-								if [[ ! "${words[@]}" =~ "$opt" ]]; then
+								if [[ ! "${words[*]}" =~ $opt ]]; then
 									opts+=( "$opt" )
 								fi
 							done
@@ -292,7 +295,7 @@ _fpm() {
                      local all_opts=("--profile" "--no-prune" "--flag" "--c-flag" "--cxx-flag" "--link-flag" "--no-rebuild" "--prefix" "--bindir" "--libdir" "--includedir" )
 							local opts=()
 							for opt in "${all_opts[@]}"; do
-								if [[ ! "${words[@]}" =~ "$opt" ]]; then
+								if [[ ! "${words[*]}" =~ $opt ]]; then
 									opts+=( "$opt" )
 								fi
 							done
@@ -315,32 +318,32 @@ _fpm() {
 						*)
 							local opts=()
 							for opt in "${all_opts[@]}"; do
-								if [[ ! "${words[@]}" =~ "$opt" ]]; then
+								if [[ ! "${words[*]}" =~ $opt ]]; then
 
 									# When --src is specified, remove --lib from completion candidates.
 									if [[ "$opt" =~ "--lib" ]]; then
-										if [[ "${words[@]}" =~ "--src" ]]; then
+										if [[ "${words[*]}" =~ "--src" ]]; then
 										 	 continue
 										fi
 									fi
 
 									# When --lib is specified, remove --src from completion candidates.
 									if [[ "$opt" == "--src" ]]; then
-										if [[ "${words[@]}" =~ "--lib" ]]; then
+										if [[ "${words[*]}" =~ "--lib" ]]; then
 											continue
 										fi
 									fi
 
 									# When --bare is specified, remove --full from completion candidates.
 									if [[ "$opt" == "--full" ]]; then
-										if [[ "${words[@]}" =~ "--bare" ]]; then
+										if [[ "${words[*]}" =~ "--bare" ]]; then
 											continue
 										fi
 									fi
 									
 									# When --full is specified, remove --bare from completion candidates.
 									if [[ "$opt" == "--bare" ]]; then
-										if [[ "${words[@]}" =~ "--full" ]]; then
+										if [[ "${words[*]}" =~ "--full" ]]; then
 											continue
 										fi
 									fi
@@ -415,7 +418,7 @@ _fpm() {
 						*)
 							local opts=()
 							for opt in "${all_opts[@]}"; do
-								if [[ ! "${words[@]}" =~ "$opt" ]]; then								
+								if [[ ! "${words[*]}" =~ $opt ]]; then								
 									opts+=( "$opt" )
 								fi
 							done
@@ -477,7 +480,7 @@ _fpm() {
 						*)
 							local opts=()
 							for opt in "${all_opts[@]}"; do
-								if [[ ! "${words[@]}" =~ "$opt" ]]; then								
+								if [[ ! "${words[*]}" =~ $opt ]]; then								
 									opts+=( "$opt" )
 								fi
 							done
