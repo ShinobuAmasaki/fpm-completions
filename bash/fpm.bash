@@ -86,7 +86,7 @@ build_dir_analysis() {
 	fi
 	
 	local -a app_dirs
-	app_dirs=($(find "$build_dir" -type d -name app))
+	mapfile -t app_dirs <<< "$(find "$build_dir" -type d -name app)"
 
 	local -a executables
 	for dir in "${app_dirs[@]}"; do
@@ -122,7 +122,7 @@ build_dir_analysis_test() {
 
 	local -a tests
 	for dir in "${test_dir[@]}"; do
-		tests=( $(find "$dir" -type f -executable) "${tests[@]}" )
+		tests+=( $(find "$dir" -type f -executable) )
 	done 
 	
 	if [[ -z "${tests[*]}" ]]; then
