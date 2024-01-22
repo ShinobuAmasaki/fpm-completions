@@ -98,7 +98,7 @@ build_dir_analysis() {
 	fi
 
 	for element in "${executables[@]}"; do 
-	 	echo "$(basename $element)"
+	 	basename "$element"
 	done
 
 }
@@ -122,7 +122,7 @@ build_dir_analysis_test() {
 
 	local -a tests
 	for dir in "${test_dir[@]}"; do
-		tests=( $(find "$dir" -type f -executable) "${tests[@]}" )
+		tests+=( $(find "$dir" -type f -executable) )
 	done 
 	
 	if [[ -z "${tests[*]}" ]]; then
@@ -130,13 +130,14 @@ build_dir_analysis_test() {
 	fi
 
 	for element in "${tests[@]}"; do 
-	 	echo $(basename $element)
+	 	basename "$element"
 	done
 
 }
 
 build_dir_analysis_example() {
-	local proj_dir=$(find_manifest_dir)
+	local proj_dir
+	proj_dir=$(find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -161,7 +162,7 @@ build_dir_analysis_example() {
 	fi
 
 	for element in "${expls[@]}"; do 
-	 	echo $(basename "$element" )
+	 	basename "$element"
 	done
 
 }
@@ -214,7 +215,7 @@ _fpm_build() {
 				_values 'profiles' $profs
 				;;
 			(list)
-				if [[ "$word[*]" != *--tests* ]]; then
+				if [[ "${words[*]}" != *--tests* ]]; then
 					_message "--list option can only be specified together with --test option"
 					_values 'list' '--tests'
 				fi
@@ -290,14 +291,16 @@ _fpm_run() {
 			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
 				local -a user_cmds
 				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
-				_values 'commands' $user_cmds
+				if [[ -n "${user_cmds[*]}" ]]; then
+					_values 'commands' $user_cmds
+				fi  
 				return
 			fi
 
 			_message "List of application names to execute."
 			local -a targets
 			targets=($(build_dir_analysis))
-			if [[ -n "$targets[*]" ]]; then
+			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
 			;;
@@ -305,7 +308,7 @@ _fpm_run() {
 			_message "List of application names to execute."
 			local -a targets
 			targets=($(build_dir_analysis_example))
-			if [[ -n "$targets[*]" ]]; then
+			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
 			;;
@@ -398,7 +401,7 @@ _fpm_test() {
 			_message "List of application names to execute."
 			local -a targets
 			targets=($(build_dir_analysis_test))
-			if [[ -n "$targets[*]" ]]; then
+			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
 			;;
@@ -530,7 +533,7 @@ _fpm() {
 			_values 'commands' $commands
 			;;
 		(args)
-			case "$line[1]" in
+			case "${line[1]}" in
 				(new)
 					_fpm_new
 					;;
