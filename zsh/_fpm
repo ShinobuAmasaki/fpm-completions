@@ -71,9 +71,9 @@ find_manifest_dir() {
 
 	return 1
 }
-
 build_dir_analysis() {
-	local proj_dir=$(find_manifest_dir)
+	local -a proj_dir
+	proj_dir=$( find_manifest_dir )
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -81,24 +81,31 @@ build_dir_analysis() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e $build_dir ]; then
+	if [ ! -e "$build_dir" ]; then
 		return 
 	fi
-
-	local -a executables=($(find $(find "$build_dir" -type d -name app) -type f -executable))
 	
-	if [[ -z "$executables[*]" ]]; then
+	local -a app_dirs
+	app_dirs=($(find "$build_dir" -type d -name app))
+
+	local -a executables
+	for dir in "${app_dirs[@]}"; do
+		executables+=($(find "$dir" -type f -executable))
+	done
+	
+	if [[ -z "${executables[*]}" ]]; then
 		return
 	fi
 
 	for element in "${executables[@]}"; do 
-	 	echo $(basename $element)
+	 	echo "$(basename $element)"
 	done
 
 }
 
 build_dir_analysis_test() {
-	local proj_dir=$(find_manifest_dir)
+	local -a proj_dir
+	proj_dir=$(find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -106,13 +113,19 @@ build_dir_analysis_test() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e $build_dir ]; then
+	if [ ! -e "$build_dir" ]; then
 		return 
 	fi
 
-	local -a tests=($(find $(find "$build_dir" -type d -name test) -type f -executable))
+	local -a test_dir
+	test_dir=($(find "$build_dir" -type d -name test))
+
+	local -a tests
+	for dir in "${test_dir[@]}"; do
+		tests=( $(find "$dir" -type f -executable) "${tests[@]}" )
+	done 
 	
-	if [[ -z "$tests[*]" ]]; then
+	if [[ -z "${tests[*]}" ]]; then
 		return
 	fi
 
@@ -131,18 +144,24 @@ build_dir_analysis_example() {
 
 	local build_dir="$proj_dir/build"
 
-	if [ ! -e $build_dir ]; then
+	if [ ! -e "$build_dir" ]; then
 		return
 	fi
 
-	local -a expls=($(find $(find "$build_dir" -type d -name example) -type f -executable))
+	local -a expls_dir
+	expls_dir=($(find "$build_dir" -type d -name example))
 
-	if [[ -z "$expls[*]" ]]; then
+	local -a expls
+	for dir in "${expls_dir[@]}"; do
+		expls+=($(find "$dir" -type f -executable))
+	done 
+
+	if [[ -z "${expls[*]}" ]]; then
 		return
 	fi
 
 	for element in "${expls[@]}"; do 
-	 	echo $(basename $element)
+	 	echo $(basename "$element" )
 	done
 
 }
