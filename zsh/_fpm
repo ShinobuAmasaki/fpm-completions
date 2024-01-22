@@ -176,6 +176,21 @@ build_dir_analysis_example() {
 
 }
 
+get_rightmost_option() {
+	local words=($@)
+	
+	local ret
+
+	for element in "${words[@]}"; do
+		if [[ "$element" =~ '^--' ]]; then
+			ret=$element
+		fi
+	done
+
+	echo $ret
+
+}
+
 _fpm_new() {
 
 	local context state state_descr line
@@ -198,8 +213,9 @@ _fpm_build() {
 
 	local context state state_descr line
 	typeset -A opt_args
-	
+
 	_arguments -S \
+			'*: :->target'\
 			'--tests[build all tests (otherwise only if needed).]' \
 		- set_for_list \
 			'--list[list candidates instead of building them.]: :->list' \
@@ -207,7 +223,7 @@ _fpm_build() {
 			'--profile[select the compilation profile for the build.]: :->profile'\
 			'--compiler[specify a compiler name.]: :->FC'  \
 			'--c-compiler[specify the C compiler name.]: :->CC' \
-	 		'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
+			'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
 			'--archiver[specify the archiver name.]: :->AR' \
 			'--flag[selects compile arguments for the build.]: :->FFLAGS'  \
 			'--c-flag[selects compile arguments specific for C source.]: :->CFLAGS'  \
@@ -221,10 +237,10 @@ _fpm_build() {
 			(profile)
 				local -a profs
 				profs=( "debug" "release" )
-				_values 'profiles' $profs
+				_values 'profiles' $prof
 				;;
 			(list)
-				if [[ "${words[*]}" != *--tests* ]]; then
+				if [[ "${line[*]}" != *--tests* ]]; then
 					_message "--list option can only be specified together with --test option"
 					_values 'list' '--tests'
 				fi
@@ -263,6 +279,31 @@ _fpm_build() {
 				;;
 			(help)
 				_message "Print the help message."
+				;;
+			(target)
+				# Suggest multiple target specifications.
+				rightmost_option=$(get_rightmost_option "${words[@]}")
+				if [[ "$rightmost_option" == '' ]]; then
+					
+					local -a targets
+					targets=($(build_dir_analysis))
+					local -a candidates
+
+					# Extract elements of 'targets' not included in 'words' to 'candidates'
+					for val in "${targets[@]}"; do
+						for word in "${words[@]}"; do
+							if [[ $word == $val ]]; then
+								continue 2
+							fi
+						done
+						candidates+=("$val")
+					done 
+
+					if [[ ${#candidates} != 0 ]]; then
+						_message "Select targets."
+						_describe -t targets 'targets' candidates
+					fi
+				fi
 				;;
 		esac
 	
