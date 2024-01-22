@@ -90,6 +90,9 @@ build_dir_analysis() {
 
 	local -a executables
 	for dir in "${app_dirs[@]}"; do
+		if [[ "$dir" == "" ]]; then
+			continue
+		fi
 		executables+=($(find "$dir" -type f -executable))
 	done
 	
@@ -122,6 +125,9 @@ build_dir_analysis_test() {
 
 	local -a tests
 	for dir in "${test_dir[@]}"; do
+		if [[ "$dir" == "" ]]; then
+			continue
+		fi
 		tests+=( $(find "$dir" -type f -executable) )
 	done 
 	
@@ -154,6 +160,9 @@ build_dir_analysis_example() {
 
 	local -a expls
 	for dir in "${expls_dir[@]}"; do
+		if [[ "$dir" == "" ]]; then
+			continue
+		fi
 		expls+=($(find "$dir" -type f -executable))
 	done 
 
