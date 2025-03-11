@@ -7,6 +7,49 @@
 #
 # This script is distributed under the MIT license.
 
+filter_path() {
+   # 既定の無視ディレクトリ
+   local exclude_dirs=(/sbin /usr/sbin /usr/local/sbin)
+   local new_path=""
+   
+    # $PATH から無視ディレクトリを除外
+   for dir in ${(s/:/)PATH}; do
+      if [[ ! " ${exclude_dirs[@]} " =~ " $dir " ]]; then
+         new_path+="$dir:"
+      fi
+   done
+    
+    # 最後のコロンを削除して返す
+   echo "${new_path%:}"
+}
+
+
+get_matching_compilers() {
+  # 定義されているコンパイラ名のリスト
+   local -a fc_list=("gfortran" "ifort" "ifx" "pgfortran" "nvfortran" "flang" \
+                     "lfortran" "lfc" "nagfor" "crayftn" "xlf90" "ftn95" \
+                     "mpifort" "mpif90" "mpif77" "caf")
+  
+	local -a found_compilers
+	local clean_path
+	clean_path=$(filter_path)
+
+	local compiler_path
+
+	for compiler in "${fc_list[@]}"; do
+		
+      compiler_path=$(whence -p "$compiler" 2>/dev/null)
+
+		if [[ -n "$compiler_path" && "$clean_path" == *"${(s/:/)compiler_path%/*}"* ]]; then
+			found_compilers+=( "$compiler" )
+		fi
+
+	done
+
+   echo "$found_compilers"
+}
+
+
 echo_if_exist() {
 	type $1 > /dev/null 2>&1 && echo $1
 }
@@ -18,7 +61,8 @@ get_fortran_compilers() {
 				 "mpifort" "mpif90" "mpif77" "caf" \
 	)
 	for element in "${fc_list[@]}"; do
-		echo_if_exist "$element"
+ 		echo_if_exist "$element"
+		# type "$element"
 	done
 }
 
@@ -297,8 +341,7 @@ _fpm_build() {
 							fi
 						done
 						candidates+=("$val")
-					done 
-
+					done
 					if [[ ${#candidates} != 0 ]]; then
 						_message "Select targets."
 						_describe -t targets 'targets' candidates
@@ -313,6 +356,7 @@ _fpm_run() {
 
 	local context state state_descr line
 	typeset -A opt_args
+
 	_arguments \
 		+ '(trgt)'\
 			'--example[run example programs instead of applications.]: :->example' \
@@ -378,7 +422,7 @@ _fpm_run() {
 			;;
 		(FC)
 			local -a compilers
-			compilers=($(get_fortran_compilers))
+			compilers=($(get_matching_compilers))
 			_values 'Fortran Compiler' $compilers
 			;;
 		(CC)
@@ -432,7 +476,6 @@ _fpm_test() {
 		- set_for_test \
 			'--profile[selects the compilation profile for the build.]: :->profile' \
 			'--target[list of application names to execute.]: :->target' \
-			'--all[run all examples or applications.]' \
 			'--compiler[specify a compiler name.]: :->FC' \
 			'--c-compiler[specify the C compiler name.]: :->CC' \
 			'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
@@ -531,6 +574,8 @@ _fpm_install() {
 			'--bindir[subdirectory to place executables in (default: bin).]: :->bindir'\
 			'--libdir[subdirectory to place libraries and archives in (default: lib).]: :->libdir'\
 			'--includedir[subdirectory to place headers and module files in (default: include).]: :->includedir'\
+			'--test[also install test programs.]'\
+			'--testdir[subdirectory to place test programs in (default: test).]: :->testdir'
 		
 		case "$state" in
 			(profile)
@@ -550,6 +595,9 @@ _fpm_install() {
 			(includedir)
 				_path_files -/
 				;; 
+			(testdir)
+				_path_files -/
+				;;
 			(FFLAGS)
 				_message "Select compile arguments for the build."
 				;;
