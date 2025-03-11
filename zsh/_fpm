@@ -1,5 +1,4 @@
 #compdef fpm
-
 #
 # fpm-completions for zsh
 #
@@ -24,64 +23,110 @@ filter_path() {
 }
 
 
-get_matching_compilers() {
-  # 定義されているコンパイラ名のリスト
-   local -a fc_list=("gfortran" "ifort" "ifx" "pgfortran" "nvfortran" "flang" \
-                     "lfortran" "lfc" "nagfor" "crayftn" "xlf90" "ftn95" \
-                     "mpifort" "mpif90" "mpif77" "caf")
-  
-	local -a found_compilers
-	local clean_path
-	clean_path=$(filter_path)
+get_fortran_compilers() {
+   local -a fc_list_strict=( "ifort" "ifx" "pgfortran" "nvfortran" \
+                     "lfortran" "nagfor" "crayftn" "xlf90" "ftn95" \
+                     "mpifort" "mpif90" "mpif77" "caf" "lfc" )
+	local -a fc_list_class=("gfortran" "flang")
 
-	local compiler_path
+	typeset -A available
 
-	for compiler in "${fc_list[@]}"; do
-		
-      compiler_path=$(whence -p "$compiler" 2>/dev/null)
-
-		if [[ -n "$compiler_path" && "$clean_path" == *"${(s/:/)compiler_path%/*}"* ]]; then
-			found_compilers+=( "$compiler" )
-		fi
-
+	for cmd in "${(v)commands[@]}"; do
+		fullpath=$cmd
+		for fc in ${fc_list_strict[@]}; do
+			if [[ $fullpath == *"$fc" ]]; then
+				available["$cmd"]=$fullpath
+			fi
+		done
+		for fc in ${fc_list_class[@]}; do
+			if [[ $fullpath == *"$fc"* ]]; then
+				available["$cmd"]=$fullpath
+			fi
+		done
 	done
 
-   echo "$found_compilers"
-}
-
-
-echo_if_exist() {
-	type $1 > /dev/null 2>&1 && echo $1
-}
-
-get_fortran_compilers() {
-	local -a fc_list
-	fc_list=( "gfortran" "ifort" "ifx" "pgfortran" "nvfortran" "flang" \
-				 "lfortran" "lfc" "nagfor" "crayftn" "xlf90" "ftn95"      \
-				 "mpifort" "mpif90" "mpif77" "caf" \
-	)
-	for element in "${fc_list[@]}"; do
- 		echo_if_exist "$element"
-		# type "$element"
+	for full in "${(v)available[@]}"; do
+		cmd=$(basename $full)
+		echo $cmd
 	done
 }
 
 get_c_compilers() {
 	local -a cc_list
-	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc"  \
-				 "mpicc" \
-	) 
-	for element in "${cc_list[@]}"; do
-		echo_if_exist "$element"
+	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc" "mpicc" ) 
+
+	typeset -A available
+	local -a matches
+
+	for cmd in "${(v)commands[@]}"; do
+		fullpath=$cmd
+		for cc in ${cc_list[@]}; do
+			if [[ $fullpath == *"$cc"* ]]; then
+				available["$(basename $cmd)"]=$fullpath
+			fi
+		done
+	done
+
+	for item in "${available[@]}"; do
+		if [[ $item =~ gcc(-[0-9]+)?$ ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ clang(-[0-9])?$ ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ /icc$ ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ /icx$ ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ /mpi ]]; then
+			matches+=$item
+		fi
+	done
+
+	for full in "${matches[@]}"; do
+		cmd=$(basename $full)
+		echo $cmd
 	done
 }
 
 get_cxx_compilers() {
 	local -a cxx_list
 	cxx_list=( "g++" "icx" "clang++" "mpic++")
-	for element in "${cxx_list[@]}"; do
-		echo_if_exist "$element"
+
+	typeset -A available
+	local -a matches
+
+	for cmd in "${(v)commands[@]}"; do
+		fullpath=$cmd
+		for cxx in ${cxx_list[@]}; do
+			if [[ $fullpath == *"$cxx"* ]]; then
+				available["$(basename $cmd)"]=$fullpath
+			fi
+		done
 	done
+
+	for item in "${available[@]}"; do
+		if [[ $item =~ 'g\+\+(-[0-9]+)?$' ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ 'clang\+\+(-[0-9])?$' ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ '/icx$' ]]; then
+			matches+=$item
+		fi
+		if [[ $item =~ '/mpi' ]]; then
+			matches+=$item
+		fi
+	done
+
+	for full in "${matches[@]}"; do
+		cmd=$(basename $full)
+		echo $cmd
+	done
+
 }
 
 get_archivers() {
@@ -422,7 +467,8 @@ _fpm_run() {
 			;;
 		(FC)
 			local -a compilers
-			compilers=($(get_matching_compilers))
+			# compilers=($(get_fortran_compilers))
+			compilers=($(get_fortran_compilers))
 			_values 'Fortran Compiler' $compilers
 			;;
 		(CC)
@@ -619,7 +665,7 @@ _fpm_install() {
 _fpm() {
 	local context state state_descr line
 	typeset -A opt_args
-	local commands=("new" "build" "run" "test" "install" "list" "clean" "publish" "help")
+	local cmds=("new" "build" "run" "test" "install" "list" "clean" "publish" "help")
 
 	_arguments -C \
 		'1: :->command' \
@@ -628,7 +674,7 @@ _fpm() {
 	
 	case "$state" in
 		(command)
-			_values 'commands' $commands
+			_values 'commands' $cmds
 			;;
 		(args)
 			case "${line[1]}" in
@@ -661,7 +707,7 @@ _fpm() {
 					_message "Completion for the sub-command publish is not yet provided."
 					;;
 				(help)
-					_values 'command' $commands "runner"
+					_values 'command' $cmds "runner"
 					;;
 			esac
 			;;
