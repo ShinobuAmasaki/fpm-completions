@@ -1,3 +1,8 @@
+$fpmGetOptions = {
+   param($subcmd, $ast)
+   
+}
+
 $fpmCompletions = {
    param($wordToComplete, $commandAst, $cursorPosition);
 
@@ -15,6 +20,8 @@ $fpmCompletions = {
    $newOptions = @("--app", "--backfill", "--bare", "--example", "--full", "--lib", "--src", "--test")
    $installOptions = @("--bindir", "--c-flag", "--cxx-flag", "--flag", "--includedir", "--libdir", "--link-flag", "--no-prone", "--no-rebuild", "--prefix", "--profile", "--test", "--testdir", "--verbose")
    $testOptions = @("--archiver", "--c-compiler", "--c-flag", "--compiler", "--cxx-compiler", "--cxx-flag", "--flag", "--help", "--list", "--", "--profile", "--runner", "--runner-args", "--target")
+
+   $wholeOptions = @(($commonOptions + $cleanOptions + $newOptions + $installOptions + $testOptions) | Sort-Object -Unique)
 
    # runnnerの候補
    $runnerCommands = @("cafrun", "mpiexec", "mpirun", "gdb", "varglind")
@@ -89,7 +96,8 @@ $fpmCompletions = {
       return $null
    } elseif (($currToken -eq 'update') -or ($lastToken -eq 'update') -or ($sub -eq 'update')) {
       return $null
-############################################################################################
+   } elseif ($sub -in $wholeOptions) {
+      
    } else {
       Write-Host "L90: ELSE"
       Write-Host "`$wordToComplete の値: '[$wordToComplete]'" -ForegroundColor Yellow
@@ -97,6 +105,7 @@ $fpmCompletions = {
       Write-Host "`$commandAst.Extent.Text.Length の値: $($commandAst.Extent.Text.Length)" -ForegroundColor Cyan
       return $null
    }
+############################################################################################
    
    if (($currToken -eq '--runner')-or  ($lastToken -eq '--runner')) {
       Write-Host "L77: --runner"
@@ -110,7 +119,8 @@ $fpmCompletions = {
       $filteredItems = ($subcommands) | Where-Object { $_ -like "$wordToComplete*"}
       Write-Host "L88 fpm"
    } else {
-      Write-Host "ELSE"
+
+      Write-Host "ELSE-Option"
       return $null
    }
 
