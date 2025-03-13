@@ -1,3 +1,20 @@
+function Find-FpmToml {
+   param (
+      [string]$StartPath = (Get-Location)
+   )
+
+   $rootpath = $StartPath
+   while ($rootpath -ne [System.IO.Path]::GetPathRoot($rootpath)) {
+      if (Test-Path (Join-Path $rootpath "fpm.toml")) {
+         return $rootpath
+      }
+      $rootpath = Split-Path $rootpath -Parent
+   }
+   # Write-Host "Not Found"
+   return $null
+   
+}
+
 function fpmGetOptions {
    param([string]$Subcmd,
          [System.Management.Automation.Language.CommandAst]$Ast
@@ -20,6 +37,26 @@ function fpmGetOptions {
       "--src",
       "--test"
    )
+   $buildOptions = @(
+      "--archiver",
+      "--compiler",
+      "--flag",
+      "--c-compiler",
+      "--c-flag",
+      "--cxx-compiler",
+      "--cxx-flag",
+      "--help",
+      "--link-flag",
+      "--list",
+      "--no-prune",
+      "--profile",
+      "--show-model"
+      "--target",
+      "--tests",
+      "--dump"
+      "--version"
+   )
+
    $runOptions = @(
       "--all",
       "--archiver",
@@ -73,7 +110,6 @@ function fpmGetOptions {
       "--target"
    )
 
-   $wholeOptions = @(($commonOptions + $cleanOptions + $newOptions + $installOptions + $testOptions) | Sort-Object -Unique)
 
    if ($subcmd -eq 'install') {
       @( $installOptions |  Where-Object{ $_ -notin $tokens})
@@ -121,37 +157,29 @@ $fpmCompletions = {
    } else {
       $sub = ""
    }
+   $projectRoot = Find-FpmToml
 
 
-   $filteredOptions = $options | Where-Object { $_ -notin $tokens }
-
-   Write-Host "L26:"
-   Write-Host "L27: count: "$tokens.Count
-   Write-Host "L40: sub-cmd:   '$sub'"
-   Write-Host "L28: lastToken: '$lastToken'"
-   Write-Host "L29: currToken: '$currToken'"
-
-   if (($sub -eq 'run')-or($sub -eq 'build')) {Write-Host "L30: exeFiles : $exeFiles"}
-   if ($sub -eq 'test') { Write-Host "L36: testFiles: $testExeFiles"}
-
+   # Write-Host "L26:"
+   # Write-Host "L27: count: "$tokens.Count
+   # Write-Host "L40: sub-cmd:   '$sub'"
+   # Write-Host "L28: lastToken: '$lastToken'"
+   # Write-Host "L29: currToken: '$currToken'"
+   # Write-Host "L158:$projectRoot" 
 
 ## 
    if (($sub -in $subCmdWithArg)) {
       ## COMMANDs take some arguments: build, run, test, new
-   
       if (($sub -eq "build") -or ($sub -eq 'run')) {
-         if ($IsWindows) {
-            $exeFiles = @(Get-ChildItem -Path ".\build\*\app\*.exe" -File | ForEach-Object { $_.BaseName } | Sort-Object -Unique)
-         } else {
-            $exeFiles = @(Get-ChildItem -Path "./build/*/app/*" -File | ForEach-Object { $_.BaseName } | Sort-Object -Unique)
-         }
+         $exeFiles = @(Get-ChildItem -Path (Join-Path $projectRoot build) -Recurse -Filter "*.exe" | 
+            Where-Object { $_.FullName -match '\\app\\' } |
+            ForEach-Object { $_.BaseName } |
+            Sort-Object -Unique)
       } elseif ($sub -eq 'test') {
-         if ($IsWindows) {
-            $exeFiles = @(Get-ChildItem -Path ".\build\*\test\*.exe" -File | ForEach-Object { $_.BaseName }| Sort-Object -Unique)
-         } elseif ($IsLinux){
-            $exeFiles = @(Get-ChildItem -Path "./build/*/test/*" -File | ForEach-Object { $_.BaseName }| Sort-Object -Unique)
-         } else {
-         }
+         $exeFiles = @(Get-ChildItem -Path (Join-Path $projectRoot build) -Recurse -Filter "*.exe" | 
+            Where-Object { $_.FullName -match '\\test\\' } |
+            ForEach-Object { $_.BaseName } |
+            Sort-Object -Unique)
       }
 
       if ($exeFiles) {
@@ -164,10 +192,12 @@ $fpmCompletions = {
       ## COMMANDs take no arguments: install, clean, manual, update, publish
       
       $filteredItems = (fpmGetOptions -Subcmd $sub -Ast $commandAst) | Where-Object { $_ -like "$wordToComplete*"}
-   } else {
+   } else {}
 
-   }
-
+###
+   # if (($sub -eq 'run')-or($sub -eq 'build')) {Write-Host "L30: exeFiles : $exeFiles"}
+   # if ($sub -eq 'test') { Write-Host "L36: testFiles: $testExeFiles"}
+###
 ## HELP handler
    if (( $currToken -eq 'help') -or ($lastToken -eq 'help')-or ($sub -eq 'help')) {
       if (($tokens.Count -ge 3) -and ($currToken -in $helpCommands) -and ($cursorPosition -ne $len)) {
@@ -175,20 +205,20 @@ $fpmCompletions = {
       } else {
          $filteredItems = ($helpCommands) | Where-Object { $_ -like "$wordToComplete*"}
       }
-      Write-Host "L164 Help"
+      # Write-Host "L164 Help"
    }
 
 ## SUBCOMMAND COMLETION # IMPORTANT ##
    if (($currToken -in $fpmCommands -and $tokens.Count -eq 1) -or ($lastToken -in $fpmCommands -and $tokens.Count -eq 2 -and $currToken -notin $subcommands)) {
       $filteredItems = ($subcommands) | Where-Object { $_ -like "$wordToComplete*"}
-      Write-Host "L182 subcommand completion"
+      # Write-Host "L182 subcommand completion"
    }
 ######################################
 
-   Write-Host "L173: filteredItems: " $filteredItems
+   # Write-Host "L173: filteredItems: " $filteredItems
 
 
-   foreach ($item in $filteredItems)
+   foreach ($item in ($filteredItems | Where-Object {$_ -notin $tokens}))
    {
 
       $completionText = "$item "
