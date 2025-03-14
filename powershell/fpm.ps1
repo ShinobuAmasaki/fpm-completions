@@ -22,19 +22,23 @@ $optionsWithArgFpm = @(
    '--cxx-flag',
    '--link-flag',
    '--profile',
-   '--prefix',
    '--runner',
    '--runner-args',
    '--target',
-   '--bindir',
-   '--includedir',
-   '--libdir',
-   '--testdir',
    '--dump',
    '--registry-cache',
    '--token',
    '--'
 )
+
+$optionsWithPathFpm = @(
+   '--prefix',
+   '--bindir',
+   '--includedir',
+   '--libdir',
+   '--testdir'
+)
+
 $optionsNoArgFpm = @(
    '--clean',
    '--dry-run',
@@ -61,7 +65,7 @@ $optionsNoArgFpm = @(
    '--show-upload-data'
 )
 
-$wholeOptions = @($optionsWithArgFpm + $optionsNoArgFpm)
+$wholeOptions = @($optionsWithArgFpm + $optionsWithPathFpm + $optionsNoArgFpm)
 
 function AvailableCommandsFpm {
    param (
@@ -144,6 +148,13 @@ function DoesOptionTakeArgFpm {
    return ($flag -in $optionsWithArgFpm)
 
 }
+function DoesOptionTakePathFpm {
+   param (
+      [string]$flag
+   )
+   return ($flag -in $optionsWithPathFpm)
+}
+
 function GetOptionsFpm {
    param([string]$Subcmd,
          [System.Management.Automation.Language.CommandAst]$Ast
@@ -251,7 +262,8 @@ function GetOptionsFpm {
       "--fetch-only",
       "--clean",
       "--verbose",
-      "--dump"
+      "--dump",
+      "--help"
    )
 
    $listOptions = @(
@@ -373,28 +385,35 @@ $fpmCompletions = {
       $sub = ""
    }
 
-   ### For debug
+   ### for debug
    # $projectRoot = FindManifestFpm
-   Write-Host "L250:"
-   Write-Host "L251: count:     "$tokens.Count
-   Write-Host "L252: sub-cmd:   '$sub'"
-   Write-Host "L253: prevToken: '$prevToken'"
-   Write-Host "L254: currToken: '$currToken'"
+   # Write-Host "L250:"
+   # Write-Host "L251: count:     "$tokens.Count
+   # Write-Host "L252: sub-cmd:   '$sub'"
+   # Write-Host "L253: prevToken: '$prevToken'"
+   # Write-Host "L254: currToken: '$currToken'"
    # Write-Host "L255: project:   '$projectRoot'"
-
+   #
    # $manifest = FindManifestFpm
    # $testFiles = FindTestNamesFpm
    # Write-Host "L278: tests $testFiles"
    # Write-Host "L279: manifest $manifest"
    # Write-Host "L280: Srcs: $srcFiles" 
 
+#=================================================================================================#
    
-   $condLast = (DoesOptionTakeArgFpm -flag $prevToken)
-   $condCurr = (DoesOptionTakeArgFpm -flag $currToken)
-   # Write-Host "L295: condLast: $condLast"
-   # Write-Host "L296: condCurr: $condCurr"
+   $condArgPrev = (DoesOptionTakeArgFpm -flag $prevToken)
+   $condArgCurr = (DoesOptionTakeArgFpm -flag $currToken)
+   $condPathPrev = (DoesOptionTakePathFpm -flag $prevToken)
+   $condPathCurr = (DoesOptionTakePathFpm -flag $currToken)
+   
+   ## for debug
+   # Write-Host "L295: condLast: $condArgPrev"
+   # Write-Host "L296: condCurr: $condArgCurr"
+   # Write-Host "L411: $condPathPrev"
+   # Write-Host "L412: $condPathCurr"
 
-   if (($condLast -or $condCurr)) {
+   if (($condArgPrev -or $condArgCurr)) {
 
       $flag = if ($currToken -in $optionsWithArgFpm) {
          $currToken
@@ -406,22 +425,58 @@ $fpmCompletions = {
 
       if ($flagIndex -ge 0) {
 
-         # 
+         # immediately after writing the flag.
          if ($flagIndex -eq $tokens.Length-1) {
             $candidateItems = OptionCompletionFpm -flag $flag -word2comp $wordToComplete
          }
 
-         # 
+         # inputting an argument
          $afterFlag = $tokens[$flagIndex +1]
          if ($wordToComplete -eq $afterFlag) {
             $candidateItems = OptionCompletionFpm -flag $flag -word2comp $wordToComplete | Where-Object {$_ -like "$wordToComplete*"}
          }
 
+         # if it's not either of the above
          if ($candidateItems -eq $null) {
             $candidateItems = GetOptionsFpm -Subcmd $sub -Ast $commandAst
          }
          
       } 
+
+   } elseif ($condPathPrev -or $condPathCurr){
+
+      $flag = if ($currToken -in $optionsWithPathFpm) {
+         $currToken
+      } elseif ($prevToken -in $optionsWithPathFpm) {
+         $prevToken
+      }
+      $flagIndex = $tokens.IndexOf($flag)
+
+      if ($flagIndex -ge 0 -and ($flagIndex -eq $tokens.Length -1) -or ($flagIndex -eq $tokens.Length-1)) {
+
+         switch ($flag) {
+            '--bindir' { $subdir = 'bin'}
+            '--libdir' { $subdir = 'lib'}
+            '--includedir' { $subdir = 'include'}
+            '--testdir' { $subdir = 'test'}
+            '--prefix' { $subdir = $null }
+            Default {$subdir = $null}
+         }
+         $dir = Join-Path ".local" $subdir
+         
+         ## Customized candidate path
+         $customPaths = [System.Management.Automation.CompletionResult]::new(
+            (Join-Path $HOME $dir),
+            (Join-Path $HOME $dir),
+            "ParameterValue",
+            "Local custom path for fpm installation"
+         )
+         
+         return $customPaths
+
+      } else {
+         $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
+      }
 
    } else {
 
@@ -446,14 +501,20 @@ $fpmCompletions = {
 
       } elseif ($sub -in $subCmdNoArg) {
          ## COMMANDs take no arguments: install, clean, manual, update, publish
-
-         $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object { $_ -like "$wordToComplete*"}
-      } else {}
+         switch ($sub) {
+            'install' { $candidateItems = @(GetOptionsFpm -Subcmd 'install' -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"} }
+            'clean' {$candidateItems = @(GetOptionsFpm -Subcmd 'clean' -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}}
+            'manual' {return $null}
+            'update' {$candidateItems = @(GetOptionsFpm -Subcmd 'update' -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}}
+            'publish' {return $null}
+            Default {return $null}
+         }
+      }
    }
 
-   ### For debug
-   # if (($sub -eq 'run')-or($sub -eq 'build')) {Write-Host "L30: exeFiles : $exeFiles"}
-   # if ($sub -eq 'test') { Write-Host "L36: testFiles: $testExeFiles"}
+   ### for debug
+   # if ($sub -eq 'run') {Write-Host "L516: exeFiles : $exeFiles"}
+   # if ($sub -eq 'test') { Write-Host "L617: testFiles: $testExeFiles"}
 
    ### HELP handler
    $len = $commandAst.Extent.Text.Length
@@ -476,12 +537,21 @@ $fpmCompletions = {
       return $null
    }
 
-   ### Filter just before.
+#=================================================================================================#
+   
+   ### Filter just before completion.
    if ($currToken -eq '') {
+      ## For flags that takes a string as an argument, no completion is performed.
       if ($prevToken -in $stringTakeOptions) {
          return $null
       }
    }
+   if ($tokens -contains '--help' -or $tokens -contains '--version') {
+      ## Do not complete further if `--version` or `--help` flag is present.
+      return $null
+   }
+
+   ## Handling conflicting options
    if ($sub -eq 'run'){
       if (DoesOptionHaveArgFpm -Option '--target' ) {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
@@ -492,11 +562,14 @@ $fpmCompletions = {
       if (DoesOptionHaveArgFpm -Option '--example') {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
       }
-      if ($currToken -match '["]\s*') {
-         return $null
-      }
+   }
+   if ($tokens.Count -gt 3){
+      ## Do not include `--help` flag in suggestions if there are more than 3 tokens.
+      $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--help'}
    }
 
+#=================================================================================================#
+   
    foreach ($item in ($candidateItems | Where-Object {$_ -notin $tokens}))
    {
 
