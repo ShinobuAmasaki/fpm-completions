@@ -1,8 +1,10 @@
-$subCmdNoArg = @("clean", "install", "publish", "list", "manual", "update")
-$subCmdWithArg = @("build", "help", "new", "run", "test", "list")
+$subCmdNoArg = @("build", "clean", "install", "publish", "list", "manual", "update")
+$subCmdWithArg = @("help", "new", "run", "test", "list")
 
 $subCmds = @($subCmdNoArg + $subCmdWithArg)
 $helpCmds = @($subCmds + "runner", "version", "fpm")
+
+$stringTakeOptions = @( "--flag", "--c-flag", "--cxx-flag", "--link-flag", "--runner-args" )
 
 $optionsWithoutSubCommand = @(
    '--version',
@@ -127,7 +129,7 @@ function DoesSubCmdHaveArgFpm {
 
    if ($index -ge 0) {
       if ($index -ne $lastIndex)  {
-         if (($tokens[$index+1] -notin $subCmds) -and ($tokens[$index+1] -notin $wholeOptions)) {
+         if (($tokens[$index+1] -notin $subCmds) -and ($tokens[$index+1] -notin $wholeOptions) -and ($tokens[$index+1] -notmatch '^-+')) {
             return $true
          }
       }
@@ -147,7 +149,7 @@ function GetOptionsFpm {
          [System.Management.Automation.Language.CommandAst]$Ast
         )
 
-   $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Value })
+   $tokens = @($Ast.CommandElements | ForEach-Object { $_.Value })
 
    $cleanOptions = @("--all", "--skip")
 
@@ -306,11 +308,11 @@ function FindExampleNamesFpm {
    return $exampleSrcFiles
 }
 
-$fpmCompletions = {
-   param($wordToComplete, $commandAst, $cursorPosition);
-
-   $fpmCommands = @("fpm", "fpm.exe", "fpm-*")
-
+function OptionCompletionFpm {
+   param(
+      $flag, 
+      $word2comp
+   )
 
    # Options' arguments
    $FC = @("gfortran", "ifort", "ifx", "flang")
@@ -318,8 +320,48 @@ $fpmCompletions = {
    $CXX = @("cl", "g++", "icx", "clang++")
    $AR = @("ar", "lib")
    $PROF = @("release", "debug")
-
    $runners = @("cafrun", "mpiexec", "mpirun", "gdb", "varglind")
+
+   $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Value })
+
+   switch ($flag) {
+      "--compiler" { $candidateItems = @( (AvailableCommandsFpm -Commands $FC) | Where-Object {$_ -like "$word2comp*"}) }
+      '--flag' {$candidateItems = @('"')}
+      '--c-compiler' { $candidateItems = @((AvailableCommandsFpm -Commands $CC)| Where-Object {$_ -like "$word2comp*"})}
+      '--c-flag' {$candidateItems = '"'}
+      '--cxx-compiler' { $candidateItems = @( (AvailableCommandsFpm -Commands $CXX) | Where-Object {$_ -like "$word2comp*"})}
+      '--cxx-flag' {$candidateItems = '"'}
+      '--profile' { $candidateItems = @( $PROF | Where-Object {$_ -like "$wordToComplete*"})}
+      '--runner' { $candidateItems = @( (AvailableCommandsFpm -Commands $runners) | Where-Object {$_ -like "$word2comp*"} )}
+      '--linker-flag' {$candidateItems = '"'}
+      '--archiver' { $candidateItems = @((AvailableCommandsFpm -Commands $AR) | Where-Object {$_ -like "$word2comp*"})}
+      '--runner-args' {$candidateItems = '" '}
+      '--bindir' {}
+      '--includedir' {}
+      '--libdir' {}
+      '--target' {
+         $srcFiles = FindProgramNamesFpm
+         if ('--all' -in $tokens) {
+            return $null
+         } else {
+            if (($curr -notin $wholeOptions) -and ($prev -notin $wholeOptions)) {
+               $candidateItems = @(@($srcFiles + @('--all')) | Where-Object  {$_ -like "$word2comp*"})
+            } else {
+               $candidateItems = @( $srcFiles | Where-Object  {$_ -like "$word2comp*"})
+            }
+         }
+      }
+      '--' {}
+      default {return $null}
+   }
+   return $candidateItems
+}
+
+$fpmCompletions = {
+   param($wordToComplete, $commandAst, $cursorPosition);
+
+   $fpmCommands = @("fpm", "fpm.exe", "fpm-*")
+
 
    $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Value })
    $prevToken = $tokens[-2]
@@ -333,7 +375,6 @@ $fpmCompletions = {
 
    ### For debug
    # $projectRoot = FindManifestFpm
-
    Write-Host "L250:"
    Write-Host "L251: count:     "$tokens.Count
    Write-Host "L252: sub-cmd:   '$sub'"
@@ -347,64 +388,50 @@ $fpmCompletions = {
    # Write-Host "L279: manifest $manifest"
    # Write-Host "L280: Srcs: $srcFiles" 
 
-
+   
    $condLast = (DoesOptionTakeArgFpm -flag $prevToken)
    $condCurr = (DoesOptionTakeArgFpm -flag $currToken)
-   $condNoArg = (-not (DoesOptionTakeArgFpm -flag $currToken) -and ($currToken -in $wholeOptions))
-
    # Write-Host "L295: condLast: $condLast"
    # Write-Host "L296: condCurr: $condCurr"
-   # Write-Host "L297: condNoARG:$condNoArg"
 
    if (($condLast -or $condCurr)) {
 
-      $long = if ($currToken -in $optionsWithArgFpm) {
-         if ($condNoArg) {$null} else {$currToken}
+      $flag = if ($currToken -in $optionsWithArgFpm) {
+         $currToken
       } elseif ($prevToken -in $optionsWithArgFpm) {
-         if ($condNoArg) {$null} else {$prevToken}
-      } else {
-         $null
+         $prevToken
       }
 
-      switch ($long) {
-         "--compiler" { $candidateItems = @( (AvailableCommandsFpm -Commands $FC) | Where-Object {$_ -like "$wordToComplete*"}) }
-         '--flag' {$candidateItems = @('"')}
-         '--c-compiler' { $candidateItems = @((AvailableCommandsFpm -Commands $CC)| Where-Object {$_ -like "$wordToComplete*"})}
-         '--c-flag' {$candidateItems = '"'}
-         '--cxx-compiler' { $candidateItems = @( (AvailableCommandsFpm -Commands $CXX) | Where-Object {$_ -like "$wordToComplete*"})}
-         '--cxx-flag' {$candidateItems = '"'}
-         '--profile' { $candidateItems = @( $PROF | Where-Object {$_ -like "$wordToComplete*"})}
-         '--runner' { $candidateItems = @( (AvailableCommandsFpm -Commands $runners) | Where-Object {$_ -like "$wordToComplete*"} )}
-         '--linker-flag' {$candidateItems = '"'}
-         '--archiver' { $candidateItems = @((AvailableCommandsFpm -Commands $AR) | Where-Object {$_ -like "$wordToComplete*"})}
-         '--runner-args' {$candidateItems = '" '}
-         '--bindir' {}
-         '--includedir' {}
-         '--libdir' {}
-         '--target' {
-            $srcFiles = FindProgramNamesFpm
-            if ('--all' -in $tokens) {
-               return $null
-            } else {
-               if (($currToken -notin $wholeOptions) -and ($prevToken -notin $wholeOptions)) {
-                  $candidateItems = @(@($srcFiles + @('--all')) | Where-Object  {$_ -like "$wordToComplete*"})
-               } else {
-                  $candidateItems = @( $srcFiles | Where-Object  {$_ -like "$wordToComplete*"})
-               }
-            }
+      $flagIndex = $tokens.IndexOf($flag)
+
+      if ($flagIndex -ge 0) {
+
+         # 
+         if ($flagIndex -eq $tokens.Length-1) {
+            $candidateItems = OptionCompletionFpm -flag $flag -word2comp $wordToComplete
          }
-         '--' {}
-         default {return $null}
-      }
+
+         # 
+         $afterFlag = $tokens[$flagIndex +1]
+         if ($wordToComplete -eq $afterFlag) {
+            $candidateItems = OptionCompletionFpm -flag $flag -word2comp $wordToComplete | Where-Object {$_ -like "$wordToComplete*"}
+         }
+
+         if ($candidateItems -eq $null) {
+            $candidateItems = GetOptionsFpm -Subcmd $sub -Ast $commandAst
+         }
+         
+      } 
 
    } else {
 
       if ($sub -in $subCmdWithArg) {
+         $exeFiles = $null
          ## COMMANDs take some arguments: build, run, test, new
-         if ((($sub -eq "build") -or ($sub -eq 'run')) -and ($tokens -contains '--example')) {
+         if (($sub -eq 'run') -and ($tokens -contains '--example')) {
             $exeFiles = FindExampleNamesFpm
 
-         } elseif (($sub -eq "build") -or ($sub -eq 'run')) {
+         } elseif ($sub -eq 'run') {
             $exeFiles = FindProgramNamesFpm
 
          } elseif ($sub -eq 'test') {
@@ -450,12 +477,23 @@ $fpmCompletions = {
    }
 
    ### Filter just before.
+   if ($currToken -eq '') {
+      if ($prevToken -in $stringTakeOptions) {
+         return $null
+      }
+   }
    if ($sub -eq 'run'){
       if (DoesOptionHaveArgFpm -Option '--target' ) {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
       }
       if (DoesSubCmdHaveArgFpm -sub 'run') {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--example'}
+      }
+      if (DoesOptionHaveArgFpm -Option '--example') {
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
+      }
+      if ($currToken -match '["]\s*') {
+         return $null
       }
    }
 
