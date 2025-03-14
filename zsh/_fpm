@@ -2,28 +2,14 @@
 #
 # fpm-completions for zsh
 #
-# Copyright 2024, Amasaki Shinobu
+# Copyright 2024-2025, Amasaki Shinobu
 #
 # This script is distributed under the MIT license.
-
-filter_path() {
-   # 既定の無視ディレクトリ
-   local exclude_dirs=(/sbin /usr/sbin /usr/local/sbin)
-   local new_path=""
-   
-    # $PATH から無視ディレクトリを除外
-   for dir in ${(s/:/)PATH}; do
-      if [[ ! " ${exclude_dirs[@]} " =~ " $dir " ]]; then
-         new_path+="$dir:"
-      fi
-   done
-    
-    # 最後のコロンを削除して返す
-   echo "${new_path%:}"
+_fpm_echo_if_exist() {
+	type $1 > /dev/null 2>&1 && echo $1
 }
 
-
-get_fortran_compilers() {
+_fpm_get_fortran_compilers() {
    local -a fc_list_strict=( "ifort" "ifx" "pgfortran" "nvfortran" \
                      "lfortran" "nagfor" "crayftn" "xlf90" "ftn95" \
                      "mpifort" "mpif90" "mpif77" "caf" "lfc" )
@@ -51,7 +37,7 @@ get_fortran_compilers() {
 	done
 }
 
-get_c_compilers() {
+_fpm_get_c_compilers() {
 	local -a cc_list
 	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc" "mpicc" ) 
 
@@ -91,7 +77,7 @@ get_c_compilers() {
 	done
 }
 
-get_cxx_compilers() {
+_fpm_get_cxx_compilers() {
 	local -a cxx_list
 	cxx_list=( "g++" "icx" "clang++" "mpic++")
 
@@ -129,23 +115,25 @@ get_cxx_compilers() {
 
 }
 
-get_archivers() {
+_fpm_get_archivers() {
 	local -a ar_list
 	ar_list=( "ar" )
 	for element in "${ar_list[@]}"; do
-		echo_if_exist "$element"
+		_fpm_
+	echo_if_exist "$element"
 	done
 }
 
-get_runner_commands() {
+_fpm_get_runner_commands() {
 	local -a runners
 	runners=( "cafrun" "mpiexec" "mpirun" "gdb" "valgrind" )
 	for element in "${runners[@]}"; do
-		echo_if_exist "$element"
+		_fpm_
+	echo_if_exist "$element"
 	done
 }
 
-find_manifest_dir() {
+_fpm_find_manifest_dir() {
 	current=$(pwd)
 
 	while [ "$current" != "/" ]; do
@@ -160,9 +148,9 @@ find_manifest_dir() {
 
 	return 1
 }
-build_dir_analysis() {
+_fpm_build_dir_analysis() {
 	local -a proj_dir
-	proj_dir=$( find_manifest_dir )
+	proj_dir=$( _fpm_find_manifest_dir )
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -195,9 +183,9 @@ build_dir_analysis() {
 
 }
 
-build_dir_analysis_test() {
+_fpm_build_dir_analysis_test() {
 	local -a proj_dir
-	proj_dir=$(find_manifest_dir)
+	proj_dir=$(_fpm_find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -230,9 +218,9 @@ build_dir_analysis_test() {
 
 }
 
-build_dir_analysis_example() {
+_fpm_build_dir_analysis_example() {
 	local proj_dir
-	proj_dir=$(find_manifest_dir)
+	proj_dir=$(_fpm_find_manifest_dir)
 
 	if [ $? -eq 1 ]; then
 		return 1
@@ -265,7 +253,7 @@ build_dir_analysis_example() {
 
 }
 
-get_rightmost_option() {
+_fpm_get_rightmost_option() {
 	local words=($@)
 	
 	local ret
@@ -286,7 +274,7 @@ _fpm_new() {
 	typeset -A opt_args
 
   	_arguments \
-		'2: :->name'\
+		'1: :->name'\
 		'--backfill[for the pre-exist directory.]' \
 		'--full[a much more extensive manifest sample and populated.]' \
 		'--bare[a minimal manifest file and README.md file created.]' \
@@ -294,6 +282,13 @@ _fpm_new() {
 		'(--src --lib)'{--src,--lib}'[create directory src/ and a placeholder module file.]' \
 		'--test[create directory test/ and a placeholder program.]' \
 		'--example[create directory example/ and a placeholder program.]'
+
+		case "$state" in
+			(name)
+				_message "Specify your new project name."
+				;;
+		esac
+
 }
 
 # Problem where the continuation of 'fpm build --list' is not completed.
@@ -336,22 +331,23 @@ _fpm_build() {
 				;;	
 			(FC)
 				local -a compilers
- 				compilers=($(get_fortran_compilers))
+ 				compilers=($(_fpm_
+			get_fortran_compilers))
 				_values 'Fortran Compiler' $compilers
 				;;
 			(CC)
 				local -a c_compilers
-				c_compilers=($(get_c_compilers))
+				c_compilers=($(_fpm_get_c_compilers))
 				_values 'C Compiler' $c_compilers
 				;;
 			(CXX)
 				local -a cxx_compilers
-				cxx_compilers=($(get_cxx_compilers))
+				cxx_compilers=($(_fpm_get_cxx_compilers))
 				_values "C++ Compiler" $cxx_compilers
 				;;
 			(AR)
 				local -a archivers
-				archivers=($(get_archivers))
+				archivers=($(_fpm_get_archivers))
 				_values "Archiver" $archivers
 				;;
 			(FFLAGS)
@@ -371,11 +367,11 @@ _fpm_build() {
 				;;
 			(target)
 				# Suggest multiple target specifications.
-				rightmost_option=$(get_rightmost_option "${words[@]}")
+				rightmost_option=$(_fpm_get_rightmost_option "${words[@]}")
 				if [[ "$rightmost_option" == '' ]]; then
 					
 					local -a targets
-					targets=($(build_dir_analysis))
+					targets=($(_fpm_build_dir_analysis))
 					local -a candidates
 
 					# Extract elements of 'targets' not included in 'words' to 'candidates'
@@ -438,7 +434,7 @@ _fpm_run() {
 
 			_message "List of application names to execute."
 			local -a targets
-			targets=($(build_dir_analysis))
+			targets=($(_fpm_build_dir_analysis))
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
@@ -446,7 +442,7 @@ _fpm_run() {
 		(example)
 			_message "List of application names to execute."
 			local -a targets
-			targets=($(build_dir_analysis_example))
+			targets=($(_fpm_build_dir_analysis_example))
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
@@ -467,23 +463,23 @@ _fpm_run() {
 			;;
 		(FC)
 			local -a compilers
-			# compilers=($(get_fortran_compilers))
-			compilers=($(get_fortran_compilers))
+			# compilers=($(_fpm_get_fortran_compilers))
+			compilers=($(_fpm_get_fortran_compilers))
 			_values 'Fortran Compiler' $compilers
 			;;
 		(CC)
 			local -a c_compilers
-			c_compilers=($(get_c_compilers))
+			c_compilers=($(_fpm_get_c_compilers))
 			_values 'C Compiler' $c_compilers
 			;;
 		(CXX)
 			local -a cxx_compilers
-			cxx_compilers=($(get_cxx_compilers))
+			cxx_compilers=($(_fpm_get_cxx_compilers))
 			_values "C++ Compiler" $cxx_compilers
 			;;
 		(AR)
 			local -a archivers
-			archivers=($(get_archivers))
+			archivers=($(_fpm_get_archivers))
 			_values "Archiver" $archivers
 			;;
 		(FFLAGS)
@@ -506,7 +502,7 @@ _fpm_run() {
 
 _fpm_run_runner() {
 	local -a runners
-	runners=($(get_runner_commands))
+	runners=($(_fpm_get_runner_commands))
 	_values "runner" $runners
 }
 
@@ -539,7 +535,7 @@ _fpm_test() {
 		(target)
 			_message "List of application names to execute."
 			local -a targets
-			targets=($(build_dir_analysis_test))
+			targets=($(_fpm_build_dir_analysis_test))
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
@@ -560,22 +556,22 @@ _fpm_test() {
 			;;
 		(FC)
 			local -a compilers
-			compilers=($(get_fortran_compilers))
+			compilers=($(_fpm_get_fortran_compilers))
 			_values 'Fortran Compiler' $compilers
 			;;
 		(CC)
 			local -a c_compilers
-			c_compilers=($(get_c_compilers))
+			c_compilers=($(_fpm_get_c_compilers))
 			_values 'C Compiler' $c_compilers
 			;;
 		(CXX)
 			local -a cxx_compilers
-			cxx_compilers=($(get_cxx_compilers))
+			cxx_compilers=($(_fpm_get_cxx_compilers))
 			_values "C++ Compiler" $cxx_compilers
 			;;
 		(AR)
 			local -a archivers
-			archivers=($(get_archivers))
+			archivers=($(_fpm_get_archivers))
 			_values "Archiver" $archivers
 			;;
 		(FFLAGS)
