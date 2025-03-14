@@ -1,4 +1,4 @@
-$OptionsWithArgFpm = @(
+$optionsWithArgFpm = @(
    '--archiver',
    '--compiler',
    '--flag',
@@ -21,33 +21,35 @@ $OptionsWithArgFpm = @(
    '--token',
    '--'
 )
-# $OptionsNoArgFpm = @(
-#    '--clean',
-#    '--dry-run',
-#    '--version',
-#    '--help',
-#    '--verbose',
-#    '--all',
-#    '--skip',
-#    '--app',
-#    '--backfill',
-#    '--bare',
-#    '--example',
-#    '--full',
-#    '--src',
-#    '--lib',
-#    '--test',
-#    '--tests',
-#    '--list',
-#    '--no-prune',
-#    '--no-rebuild',
-#    '--dump',
-#    '--show-model',
-#    '--show-package-version',
-#    '--show-upload-data'
-# )
+$optionsNoArgFpm = @(
+   '--clean',
+   '--dry-run',
+   '--version',
+   '--help',
+   '--verbose',
+   '--all',
+   '--skip',
+   '--app',
+   '--backfill',
+   '--bare',
+   '--example',
+   '--full',
+   '--src',
+   '--lib',
+   '--test',
+   '--tests',
+   '--list',
+   '--no-prune',
+   '--no-rebuild',
+   '--dump',
+   '--show-model',
+   '--show-package-version',
+   '--show-upload-data'
+)
 
-function AvailableCommands {
+$wholeOptions = @($optionsWithArgFpm + $optionsNoArgFpm)
+
+function AvailableCommandsFpm {
    param (
       [String[]]$Commands
    )
@@ -74,16 +76,37 @@ function FindManifestFpm {
    }
    # Write-Host "Not Found"
    return $null
-   
+
 }
 
+function DoesOptionHaveArg {
+   param (
+      [string]$option
+   )
+   if ($option -notin $wholeOptions) {
+      return $false
+   }
+
+   $tokens = $commandAst.Extent.Text -split '\s+'
+   $lastIndex = $tokens.Count -1
+   $index = [Array]::IndexOf($tokens, $option)
+
+   if ($index -ge 0) {
+      if ($index -ne $lastIndex)  {
+         if (($tokens[$index] -notin $wholeOptions) -and  -not ($tokens[$index] -match '^--.*')) {
+            return $true
+         }
+      }
+   }
+   return $false
+}
 
 function DoesOptionTakeArgFpm {
    param (
       [string]$flag
    )
-   return ($flag -in $OptionsWithArgFpm)
-   
+   return ($flag -in $optionsWithArgFpm)
+
 }
 function GetOptionsFpm {
    param([string]$Subcmd,
@@ -118,9 +141,9 @@ function GetOptionsFpm {
       "--no-prune",
       "--profile",
       "--show-model"
-      "--target",
       "--tests",
-      "--dump"
+      "--dump",
+      "--verbose",
       "--version"
    )
 
@@ -214,6 +237,31 @@ function GetOptionsFpm {
 
 }
 
+function FindProgramNamesFpm {
+   $rootpath = FindManifestFpm
+   $main = get-content (Join-Path $rootpath "fpm.toml") | Select-String '^name\s*=\s*"(.*?)"' | ForEach-Object {$_.Matches.Groups[1].Value}
+   $appSrcFiles = @(Get-ChildItem -Path (Join-Path $rootpath app) -Recurse |
+   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}| 
+   ForEach-Object { $_.BaseName } |
+   Sort-Object -Unique)
+
+   if ($appSrcFiles -contains "main") {
+      $appSrcFiles = $appSrcFiles | ForEach-Object { if ($_ -eq "main") { $main } else { $_ } }
+   }
+   
+   return $appSrcFiles
+}
+
+function FindTestNamesFpm {
+   $rootpath = FindManifestFpm
+   $testSrcFiles = @(Get-ChildItem -Path (Join-Path $rootpath test) -Recurse |
+   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}| 
+   ForEach-Object { $_.BaseName } |
+   Sort-Object -Unique)
+   return $testSrcFiles
+}
+
+
 $fpmCompletions = {
    param($wordToComplete, $commandAst, $cursorPosition);
 
@@ -252,16 +300,29 @@ $fpmCompletions = {
    # Write-Host "L252: sub-cmd:   '$sub'"
    # Write-Host "L253: prevToken: '$prevToken'"
    # Write-Host "L254: currToken: '$currToken'"
-   # Write-Host "L255: project:   '$projectRoot'" 
-   
+   # Write-Host "L255: project:   '$projectRoot'"
+
+   # $manifest = FindManifestFpm
+   # $testFiles = FindTestNamesFpm
+   # Write-Host "L278: tests $testFiles"
+   # Write-Host "L279: manifest $manifest"
+   # Write-Host "L280: Srcs: $srcFiles" 
+
+
    $condLast = (DoesOptionTakeArgFpm -flag $prevToken)
    $condCurr = (DoesOptionTakeArgFpm -flag $currToken)
+   $condNoArg = (-not (DoesOptionTakeArgFpm -flag $currToken) -and ($currToken -in $wholeOptions))
+
+   # Write-Host "L295: condLast: $condLast"
+   # Write-Host "L296: condCurr: $condCurr"
+   # Write-Host "L297: condNoARG:$condNoArg"
+
    if ($condLast -or $condCurr) {
 
-      $long = if ($currToken -in $OptionsWithArgFpm) {
-         $currToken
-      } elseif ($prevToken -in $OptionsWithArgFpm) {
-         $prevToken
+      $long = if ($currToken -in $optionsWithArgFpm) {
+         if ($condNoArg) {$null} else {$currToken}
+      } elseif ($prevToken -in $optionsWithArgFpm) {
+         if ($condNoArg) {$null} else {$prevToken}
       } else {
          $null
       }
@@ -281,6 +342,18 @@ $fpmCompletions = {
          '--bindir' {}
          '--includedir' {}
          '--libdir' {}
+         '--target' {
+            $srcFiles = FindProgramNamesFpm
+            if ('--all' -in $tokens) {
+               return $null
+            } else {
+               if (($currToken -notin $wholeOptions) -and ($prevToken -notin $wholeOptions)) {
+                  $candidateItems = @(@($srcFiles + @('--all')) | Where-Object  {$_ -like "$wordToComplete*"})
+               } else {
+                  $candidateItems = @( $srcFiles | Where-Object  {$_ -like "$wordToComplete*"})
+               }
+            }
+         }
          '--' {}
          default {return $null}
       }
@@ -290,15 +363,11 @@ $fpmCompletions = {
       if ($sub -in $subCmdWithArg) {
          ## COMMANDs take some arguments: build, run, test, new
          if (($sub -eq "build") -or ($sub -eq 'run')) {
-            $exeFiles = @(Get-ChildItem -Path (Join-Path $projectRoot build) -Recurse -Filter "*.exe" | 
-               Where-Object { $_.FullName -match '\\app\\' } |
-               ForEach-Object { $_.BaseName } |
-               Sort-Object -Unique)
+            $exeFiles = FindProgramNamesFpm
+
          } elseif ($sub -eq 'test') {
-            $exeFiles = @(Get-ChildItem -Path (Join-Path $projectRoot build) -Recurse -Filter "*.exe" | 
-               Where-Object { $_.FullName -match '\\test\\' } |
-               ForEach-Object { $_.BaseName } |
-               Sort-Object -Unique)
+            $exeFiles = FindTestNamesFpm
+
          }
 
          if ($exeFiles) {
@@ -309,7 +378,7 @@ $fpmCompletions = {
 
       } elseif ($sub -in $subCmdNoArg) {
          ## COMMANDs take no arguments: install, clean, manual, update, publish
-         
+
          $candidateItems = (GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object { $_ -like "$wordToComplete*"}
       } else {}
    }
