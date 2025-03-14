@@ -39,7 +39,7 @@ _fpm_get_fortran_compilers() {
 
 _fpm_get_c_compilers() {
 	local -a cc_list
-	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc" "mpicc" ) 
+	cc_list=( "gcc" "icc" "icx" "clang" "craycc" "lcc" "mpicc" )
 
 	typeset -A available
 	local -a matches
@@ -159,9 +159,9 @@ _fpm_build_dir_analysis() {
 	local build_dir="$proj_dir/build"
 
 	if [ ! -e "$build_dir" ]; then
-		return 
+		return
 	fi
-	
+
 	local -a app_dirs
 	app_dirs=($(find "$build_dir" -type d -name app))
 
@@ -172,12 +172,12 @@ _fpm_build_dir_analysis() {
 		fi
 		executables+=($(find "$dir" -type f -executable))
 	done
-	
+
 	if [[ -z "${executables[*]}" ]]; then
 		return
 	fi
 
-	for element in "${executables[@]}"; do 
+	for element in "${executables[@]}"; do
 	 	basename "$element"
 	done
 
@@ -194,7 +194,7 @@ _fpm_build_dir_analysis_test() {
 	local build_dir="$proj_dir/build"
 
 	if [ ! -e "$build_dir" ]; then
-		return 
+		return
 	fi
 
 	local -a test_dir
@@ -206,13 +206,13 @@ _fpm_build_dir_analysis_test() {
 			continue
 		fi
 		tests+=( $(find "$dir" -type f -executable) )
-	done 
-	
+	done
+
 	if [[ -z "${tests[*]}" ]]; then
 		return
 	fi
 
-	for element in "${tests[@]}"; do 
+	for element in "${tests[@]}"; do
 	 	basename "$element"
 	done
 
@@ -241,13 +241,13 @@ _fpm_build_dir_analysis_example() {
 			continue
 		fi
 		expls+=($(find "$dir" -type f -executable))
-	done 
+	done
 
 	if [[ -z "${expls[*]}" ]]; then
 		return
 	fi
 
-	for element in "${expls[@]}"; do 
+	for element in "${expls[@]}"; do
 	 	basename "$element"
 	done
 
@@ -255,7 +255,7 @@ _fpm_build_dir_analysis_example() {
 
 _fpm_get_rightmost_option() {
 	local words=($@)
-	
+
 	local ret
 
 	for element in "${words[@]}"; do
@@ -328,7 +328,7 @@ _fpm_build() {
 					_message "--list option can only be specified together with --test option"
 					_values 'list' '--tests'
 				fi
-				;;	
+				;;
 			(FC)
 				local -a compilers
  				compilers=($(_fpm_
@@ -369,7 +369,7 @@ _fpm_build() {
 				# Suggest multiple target specifications.
 				rightmost_option=$(_fpm_get_rightmost_option "${words[@]}")
 				if [[ "$rightmost_option" == '' ]]; then
-					
+
 					local -a targets
 					targets=($(_fpm_build_dir_analysis))
 					local -a candidates
@@ -390,7 +390,7 @@ _fpm_build() {
 				fi
 				;;
 		esac
-	
+
 }
 
 _fpm_run() {
@@ -428,7 +428,7 @@ _fpm_run() {
 				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
 				if [[ -n "${user_cmds[*]}" ]]; then
 					_values 'commands' $user_cmds
-				fi  
+				fi
 				return
 			fi
 
@@ -530,7 +530,7 @@ _fpm_test() {
 			'--runner-args[an additional option to pass command-line arguments to the runner command.]: :->runnerargs' \
 			'--help[print help message and exit.]: :->help' \
 			'--[optional arguments to pass the program(s).]: :->arg'
-	
+
 	case "$state" in
 		(target)
 			_message "List of application names to execute."
@@ -618,7 +618,7 @@ _fpm_install() {
 			'--includedir[subdirectory to place headers and module files in (default: include).]: :->includedir'\
 			'--test[also install test programs.]'\
 			'--testdir[subdirectory to place test programs in (default: test).]: :->testdir'
-		
+
 		case "$state" in
 			(profile)
 				local -a profs
@@ -636,7 +636,7 @@ _fpm_install() {
 				;;
 			(includedir)
 				_path_files -/
-				;; 
+				;;
 			(testdir)
 				_path_files -/
 				;;
@@ -667,9 +667,16 @@ _fpm() {
 		'1: :->command' \
 		'*:: :->args' \
 		'--list[a brief list of subcommand options.]'
-	
+
 	case "$state" in
 		(command)
+			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
+				local -a user_cmds
+				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
+				if [[ -n "${user_cmds[*]}" ]]; then
+					_values 'user commands' $user_cmds
+				fi
+			fi
 			_values 'commands' $cmds
 			;;
 		(args)
