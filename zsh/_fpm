@@ -5,6 +5,19 @@
 # Copyright 2024-2025, Amasaki Shinobu
 #
 # This script is distributed under the MIT license.
+_fpm_unique () {
+	local -a input_array=("$@")
+	local -A seen
+	local -a result
+
+	for item in "${input_array[@]}"; do
+		seen[$item]="1"
+	done
+
+	result=("${(@k)seen}")
+	echo "${result[@]}"
+}
+
 _fpm_echo_if_exist() {
 	type $1 > /dev/null 2>&1 && echo $1
 }
@@ -299,6 +312,7 @@ _fpm_build() {
 	typeset -A opt_args
 
 	_arguments -S \
+			'--verbose[print more information.]'\
 			'--tests[build all tests (otherwise only if needed).]' \
 		- set_for_list \
 			'--list[list candidates instead of building them.]: :->list' \
@@ -320,7 +334,7 @@ _fpm_build() {
 			(profile)
 				local -a profs
 				profs=( "debug" "release" )
-				_values 'profiles' $prof
+				_values 'Profiles' $profs
 				;;
 			(list)
 				if [[ "${line[*]}" != *--tests* ]]; then
@@ -372,6 +386,22 @@ _fpm_run() {
 	local context state state_descr line
 	typeset -A opt_args
 
+	local example_with_arg=0
+	if [[ " ${words[*]} " =~ ' --example ' ]]; then
+		local index=1
+		while (( index <= $#words )); do
+			if [[ "$words[index]" == "--example" ]]; then
+				if [[ -n "${words[index+1]}" && "${words[index+1]}" != --*  ]]; then
+					example_with_arg=1
+				fi
+				break
+			fi
+			(( index++ ))
+		done
+	fi 
+
+	need_all=$( [[ $example_with_arg -eq 0 ]] && echo '--all[run all examples or applications.]' )
+
 	_arguments \
 		+ '(trgt)'\
 			'--example[run example programs instead of applications.]: :->example' \
@@ -381,7 +411,7 @@ _fpm_run() {
 		- set_for_run \
 			'--profile[selects the compilation profile for the build.]: :->profile' \
 			'--target[list of application names to execute.]: :->target' \
-			'--all[run all examples or applications.]' \
+			$need_all \
 			'--compiler[specify a compiler name.]: :->FC' \
 			'--c-compiler[specify the C compiler name.]: :->CC' \
 			'--cxx-compiler[specify the C++ compiler name.]: :->CXX' \
@@ -393,7 +423,7 @@ _fpm_run() {
 			'--runner[A command to prefix the program execution paths with.]: :->runner' \
 			'--runner-args[an additional option to pass command-line arguments to the runner command.]: :->runnerargs' \
 			'--help[print help message and exit.]: :->help' \
-			'--[optional arguments to pass the program(s).]: :->arg'
+			'--[optional arguments to pass the program(s).]: :->arg'\
 
 	case "$state" in
 		(target)
@@ -408,9 +438,11 @@ _fpm_run() {
 
 			_message "List of application names to execute."
 			local -a targets
+			local -a unique
 			targets=($(_fpm_build_dir_analysis))
+			unique=($(_fpm_unique "${targets[@]}"))
 			if [[ -n "${targets[*]}" ]]; then
-				_values 'target' $targets
+				_values 'target' $unique
 			fi
 			;;
 		(example)
