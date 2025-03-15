@@ -299,7 +299,6 @@ _fpm_build() {
 	typeset -A opt_args
 
 	_arguments -S \
-			'*: :->target'\
 			'--tests[build all tests (otherwise only if needed).]' \
 		- set_for_list \
 			'--list[list candidates instead of building them.]: :->list' \
@@ -331,8 +330,7 @@ _fpm_build() {
 				;;
 			(FC)
 				local -a compilers
- 				compilers=($(_fpm_
-			get_fortran_compilers))
+ 				compilers=($(_fpm_get_fortran_compilers))
 				_values 'Fortran Compiler' $compilers
 				;;
 			(CC)
@@ -364,30 +362,6 @@ _fpm_build() {
 				;;
 			(help)
 				_message "Print the help message."
-				;;
-			(target)
-				# Suggest multiple target specifications.
-				rightmost_option=$(_fpm_get_rightmost_option "${words[@]}")
-				if [[ "$rightmost_option" == '' ]]; then
-
-					local -a targets
-					targets=($(_fpm_build_dir_analysis))
-					local -a candidates
-
-					# Extract elements of 'targets' not included in 'words' to 'candidates'
-					for val in "${targets[@]}"; do
-						for word in "${words[@]}"; do
-							if [[ $word == $val ]]; then
-								continue 2
-							fi
-						done
-						candidates+=("$val")
-					done
-					if [[ ${#candidates} != 0 ]]; then
-						_message "Select targets."
-						_describe -t targets 'targets' candidates
-					fi
-				fi
 				;;
 		esac
 

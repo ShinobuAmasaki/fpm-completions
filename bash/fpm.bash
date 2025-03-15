@@ -1,8 +1,7 @@
-
 #
 # fpm-completions for Bash
 #
-# Copyright 2024, Amasaki Shinobu
+# Copyright 2024-2025, Amasaki Shinobu
 #
 # This script is distributed under the MIT license.
 
