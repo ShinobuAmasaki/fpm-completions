@@ -287,7 +287,6 @@ _fpm_build_dir_analysis_example() {
 }
 
 _fpm_get_rightmost_option() {
-	local words=($@)
 
 	local ret
 
@@ -297,6 +296,7 @@ _fpm_get_rightmost_option() {
 		fi
 	done
 
+	# ret="${words[(r)--*]}"
 	echo $ret
 
 }
@@ -416,6 +416,18 @@ _fpm_run() {
 	local -a opts desc
 	typeset -A options
 
+	## If a user command has already been written, return immediately.
+	local user_cmds
+	user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
+	if [[ -n "${user_cmds[*]}" ]]; then
+		for item in "${user_cmds[@]}"; do
+			if [[ ${words[*]} =~ $item ]]; then
+				return 0
+			fi
+		done
+	fi
+
+
 	## Create an associative array containing all the options
 	opts=(--example --all --list --profile --target --compiler --c-compiler --cxx-compiler --archiver --flag --c-flag --cxx-flag --link-flag --runner --runner-args --help --)
 	desc=( 
@@ -474,14 +486,12 @@ _fpm_run() {
 	##　Is a target name specified in the run argument?
 	run_args=$(_fpm_are_there_subcommand_arg run)
 	need_example=$( [[ $run_args -eq 0 ]] && echo '--example[run example programs instead of applications.]: :->example')
-
-	# egs_array=($(_fpm_build_dir_analysis_example))
-	# egs="(${(pj: :)egs_array})"
+	need_target=$( [[ $run_args -eq 0 ]] &&  echo '--target[list of application names to execute.]: :->target' )
 
 	args=($need_example \
 			'--list[list basenames of candidates instead of runnning them.]' \
 			'--profile[selects the compilation profile for the build.]' \
-			'--target[list of application names to execute.]' \
+			$need_target \
 			$need_all \
 			'--compiler[specify a compiler name.]' \
 			'--c-compiler[specify the C compiler name.]' \
@@ -500,7 +510,7 @@ _fpm_run() {
 			$need_example \
 			'--list[list basenames of candidates instead of runnning them.]' \
 			'--profile[selects the compilation profile for the build.]: :->profile' \
-			'--target[list of application names to execute.]: :->target' \
+			$need_target \
 			$need_all \
 			'--compiler[specify a compiler name.]: :->FC' \
 			'--c-compiler[specify the C compiler name.]: :->CC' \
@@ -516,30 +526,36 @@ _fpm_run() {
 			'--[optional arguments to pass the program(s).]: :->arg'\
 			'*:command or option:->mixed'
 
-	# _message "state: $state"
+
+	_message "state: $state"
 
 	case "$state" in
 		(mixed)
-			local -a targets
-			local -a unique
-			unique=()
+
+			## User-defined commands which start with '@'.
+			local -a at_cmds
+			at_cmds=()
 			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
 				local -a user_cmds
 				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
+
 				for item in "${user_cmds[@]}"; do
 					if printf '%s\n' "${words[@]}" | grep -qx -- "$item"; then
 						:
 					else
-						unique+=($item)
+						at_cmds+=($item)
 					fi
 				done
 			fi
-			if [[ -n "${unique[*]}" ]]; then
-				_values 'user commands' $unique
-				return			
+
+			if [[ -n "${at_cmds[*]}" ]]; then
+				_values 'user commands' $at_cmds
+				return 0	
 			fi
 
-
+			## Target application to run
+			local -a targets
+			local -a unique
 			targets=($(_fpm_build_dir_analysis))
 			unique=($(_fpm_unique "${targets[@]}"))
 			targets=()
@@ -550,8 +566,7 @@ _fpm_run() {
 					targets+=($item)
 				fi
 			done
-
-			# Needs to be improved
+			## Target filtering
 			if [[ -n "${targets[*]}" ]]; then
 				if [[ "$is_there_all_flag" == 'is_false' ]]; then
 					if [[ $example_with_arg -eq 0 ]]; then
@@ -563,7 +578,35 @@ _fpm_run() {
 				fi
 			fi
 
-			##
+			## example target
+			local rigth_most
+			rigth_most=($(_fpm_get_rightmost_option))
+			targets=()
+			unique=()
+			_message "L586: ${right_most}"
+
+			if [[ $rigth_most == '--example' ]]; then
+				targets=($(_fpm_build_dir_analysis_example))
+				unique=($(_fpm_unique "${targets[@]}"))
+				_message "L596: ${unique[*]}"
+				targets=()
+				if [[ -n "${unique}" ]]; then
+					if [[ "$is_there_all_flag" == 'is_false' ]]; then
+
+						## Give an example target that is not included in words
+						for item in "${unique[@]}"; do
+							if ! (( $#words[(r)$item] )); then
+								targets+=$item
+							fi 
+						done
+						compadd -V "example application" -X "example" $targets
+
+					fi
+				fi
+			fi
+
+
+			## options
 			local -a opts desc
 			local cache
 			opts=()
