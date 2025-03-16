@@ -181,109 +181,50 @@ _fpm_find_manifest_dir() {
 
 	return 1
 }
-_fpm_build_dir_analysis() {
+
+_fpm_get_project_name () {
+	local manifest proj_name
+	manifest="$(_fpm_find_manifest_dir)/fpm.toml"
+	proj_name=$(grep '^name *= *' $manifest | head -n 1 | cut -d'"' -f2)
+
+	echo $proj_name
+}
+
+_fpm_get_apps() {
 	local -a proj_dir
+	local -a unique candidates
+	local -a srcs unique combined
+	local proj_name
+
+	local dir
+	dir=$1
+
 	proj_dir=$( _fpm_find_manifest_dir )
+	if [ $? -eq 1 ]; then; return 1; fi
+	proj_name=$(_fpm_get_project_name)
+	if [ $? -eq 1 ]; then; return 1; fi
 
-	if [ $? -eq 1 ]; then
-		return 1
-	fi
+	srcs=($(find "$proj_dir/$dir/" -type f \( -name '*.f' -o -name '*.f90' -o -name '*.F' -o -name '*.F90' \) -exec basename {} \; | sed -E 's/\.[fF](90)?$//'))
+		
+	srcs=("${srcs[@]/main/$proj_name}")
 
-	local build_dir="$proj_dir/build"
+	unique=($(_fpm_unique $srcs))
 
-	if [ ! -e "$build_dir" ]; then
-		return
-	fi
-
-	local -a app_dirs
-	app_dirs=($(find "$build_dir" -type d -name app))
-
-	local -a executables
-	for dir in "${app_dirs[@]}"; do
-		if [[ "$dir" == "" ]]; then
-			continue
-		fi
-		executables+=($(find "$dir" -type f -executable))
+	for item in "${unique[@]}"; do
+		echo $item
 	done
-
-	if [[ -z "${executables[*]}" ]]; then
-		return
-	fi
-
-	for element in "${executables[@]}"; do
-	 	basename "$element"
-	done
-
 }
 
-_fpm_build_dir_analysis_test() {
-	local -a proj_dir
-	proj_dir=$(_fpm_find_manifest_dir)
-
-	if [ $? -eq 1 ]; then
-		return 1
-	fi
-
-	local build_dir="$proj_dir/build"
-
-	if [ ! -e "$build_dir" ]; then
-		return
-	fi
-
-	local -a test_dir
-	test_dir=($(find "$build_dir" -type d -name test))
-
-	local -a tests
-	for dir in "${test_dir[@]}"; do
-		if [[ "$dir" == "" ]]; then
-			continue
-		fi
-		tests+=( $(find "$dir" -type f -executable) )
-	done
-
-	if [[ -z "${tests[*]}" ]]; then
-		return
-	fi
-
-	for element in "${tests[@]}"; do
-	 	basename "$element"
-	done
-
+_fpm_get_apps_app() {
+	_fpm_get_apps app
 }
 
-_fpm_build_dir_analysis_example() {
-	local proj_dir
-	proj_dir=$(_fpm_find_manifest_dir)
+_fpm_get_apps_test() {
+	_fpm_get_apps test
+}
 
-	if [ $? -eq 1 ]; then
-		return 1
-	fi
-
-	local build_dir="$proj_dir/build"
-
-	if [ ! -e "$build_dir" ]; then
-		return
-	fi
-
-	local -a expls_dir
-	expls_dir=($(find "$build_dir" -type d -name example))
-
-	local -a expls
-	for dir in "${expls_dir[@]}"; do
-		if [[ "$dir" == "" ]]; then
-			continue
-		fi
-		expls+=($(find "$dir" -type f -executable))
-	done
-
-	if [[ -z "${expls[*]}" ]]; then
-		return
-	fi
-
-	for element in "${expls[@]}"; do
-	 	basename "$element"
-	done
-
+_fpm_get_apps_example() {
+	_fpm_get_apps example
 }
 
 _fpm_get_rightmost_option() {
@@ -586,7 +527,7 @@ _fpm_run() {
 			## Target application to run
 			local -a targets
 			local -a unique
-			targets=($(_fpm_build_dir_analysis))
+			targets=($(_fpm_get_apps_app))
 			unique=($(_fpm_unique "${targets[@]}"))
 			targets=()
 			for item in "${unique[@]}"; do
@@ -614,7 +555,7 @@ _fpm_run() {
 			targets=()
 			unique=()
 			if [[ $rigth_most == '--example' ]]; then
-				targets=($(_fpm_build_dir_analysis_example))
+				targets=($(_fpm_get_apps_example))
 				unique=($(_fpm_unique "${targets[@]}"))
 
 				targets=()
@@ -651,10 +592,10 @@ _fpm_run() {
 
 			if [[ is_there_example_flag == 'is_false' ]]; then
 				_message "List of application names to execute."
-				targets=($(_fpm_build_dir_analysis))
+				targets=($(_fpm_get_apps_app))
 			else
 				_message "List of example application names to execute."
-				targets=($(_fpm_build_dir_analysis_example))
+				targets=($(_fpm_get_apps_example))
 			fi
 
 			unique=($(_fpm_unique "${targets[@]}"))
@@ -670,7 +611,7 @@ _fpm_run() {
 			local -a all
 			
 			# example target
-			targets=($(_fpm_build_dir_analysis_example))
+			targets=($(_fpm_get_apps_example))
 			if [[ -n "${targets[*]}" ]]; then
 			 	if [[ $is_there_all_flag == 'is_false' ]]; then
 					_message "List of application names to execute."
@@ -770,7 +711,7 @@ _fpm_test() {
 		(target)
 			_message "List of application names to execute."
 			local -a targets
-			targets=($(_fpm_build_dir_analysis_test))
+			targets=($(_fpm_get_apps_test))
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $targets
 			fi
