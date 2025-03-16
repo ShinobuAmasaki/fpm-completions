@@ -527,7 +527,7 @@ _fpm_run() {
 			'*:command or option:->mixed'
 
 
-	_message "state: $state"
+	# _message "state: $state"
 
 	case "$state" in
 		(mixed)
@@ -572,7 +572,7 @@ _fpm_run() {
 					if [[ $example_with_arg -eq 0 ]]; then
 					if [[ ! "${words[*]}" =~ --* ]]; then
 						# _message "List of application names to execute."
-						compadd -V "application" -X "application" $targets
+						compadd -V "application" -X "application:" $targets
 					fi
 					fi
 				fi
@@ -583,12 +583,10 @@ _fpm_run() {
 			rigth_most=($(_fpm_get_rightmost_option))
 			targets=()
 			unique=()
-			_message "L586: ${right_most}"
-
 			if [[ $rigth_most == '--example' ]]; then
 				targets=($(_fpm_build_dir_analysis_example))
 				unique=($(_fpm_unique "${targets[@]}"))
-				_message "L596: ${unique[*]}"
+
 				targets=()
 				if [[ -n "${unique}" ]]; then
 					if [[ "$is_there_all_flag" == 'is_false' ]]; then
@@ -599,8 +597,7 @@ _fpm_run() {
 								targets+=$item
 							fi 
 						done
-						compadd -V "example application" -X "example" $targets
-
+						compadd -V "example application" -X "example application:" $targets
 					fi
 				fi
 			fi
@@ -621,7 +618,7 @@ _fpm_run() {
 			done
 
 			if [[ -n "${opts[*]}" ]]; then
-				compadd -V "option" -X "option" -d $desc $opts
+				compadd -V "option:" -X "option" -d $desc $opts
 			fi
 			# _message "L577: opts: $opts"
 
