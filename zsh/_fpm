@@ -18,6 +18,27 @@ _fpm_unique () {
 	echo "${result[@]}"
 }
 
+_fpm_are_there_subcommand_arg () {
+	local arg_counts seen
+	arg_counts=0
+	seen=false
+
+	for arg in "${words[@]}"; do
+		if [[ "$arg" == "$1" ]]; then
+			seen=true
+			continue
+		fi
+
+		if $seen; then
+			if [[ "$arg" == --* ]]; then
+				break
+			fi
+			((arg_counts++))
+		fi
+	done
+	echo "$arg_counts"
+}
+
 
 _fpm_echo_if_exist() {
 	type $1 > /dev/null 2>&1 && echo $1
@@ -133,8 +154,7 @@ _fpm_get_archivers() {
 	local -a ar_list
 	ar_list=( "ar" )
 	for element in "${ar_list[@]}"; do
-		_fpm_
-	echo_if_exist "$element"
+		_fpm_echo_if_exist "$element"
 	done
 }
 
@@ -142,8 +162,7 @@ _fpm_get_runner_commands() {
 	local -a runners
 	runners=( "cafrun" "mpiexec" "mpirun" "gdb" "valgrind" )
 	for element in "${runners[@]}"; do
-		_fpm_
-	echo_if_exist "$element"
+		_fpm_echo_if_exist "$element"
 	done
 }
 
@@ -387,8 +406,44 @@ _fpm_run() {
 	local context state state_descr line
 	typeset -A opt_args
 
+	local run_args
 	local example_with_arg
+	local need_example
+	local -a egs_array
+	local egs
+	local is_there_all_flag
+	local -a args
+	local -a opts desc
+	typeset -A options
 
+	## Create an associative array containing all the options
+	opts=(--example --all --list --profile --target --compiler --c-compiler --cxx-compiler --archiver --flag --c-flag --cxx-flag --link-flag --runner --runner-args --help --)
+	desc=( 
+		'run example programs instead of applications.'
+		'run all examples or applications.'
+		'list basenames of candidates instead of runnning them.'
+		'selects the compilation profile for the build.'
+		'list of application names to execute.'
+		'specify a compiler name.'
+		'specify a C compiler name.'
+		'specify a C++ compiler name.'
+		'sprcify an archiver name.'
+		'select compile arguments for the build.'
+		'select compile argument specific for C sources.'
+		'select compile argument specific for C++ sources.'
+		'select arguments passed to the linker for the build.'
+		'A command to prefix the program execution paths with.'
+		'an additional option to pass command-line arguments to the runner command.'
+		'print help message and exit.'
+		'optional arguments to pass the program(s).'
+	)
+	index=1
+	while (( index <= $#opts )); do
+		options[${opts[index]}]=${desc[index]}
+		((index++))
+	done
+	
+	## Whether the --example option flag is present
 	example_with_arg=0
 	if [[ " ${words[*]} " =~ ' --example ' ]]; then
 		local index=1
@@ -403,26 +458,31 @@ _fpm_run() {
 		done
 	fi
 
+	## Should the --all option be considered?
 	need_all=$( [[ $example_with_arg -eq 0 ]] && echo '--all[run all examples or applications.]' )
 	if [[ "${words[2]}" =~ '--.*' ]]; then
 		:
 	else
 		need_all=''
 	fi
-
-	local is_there_all_flag
 	if [[ "${words[*]}" =~ '--all' ]]; then
 		is_there_all_flag='is_true'
 	else
 		is_there_all_flag='is_false'
 	fi
 
-	local -a args
-	args=('--example[run example programs instead of applications.]' \
+	##　Is a target name specified in the run argument?
+	run_args=$(_fpm_are_there_subcommand_arg run)
+	need_example=$( [[ $run_args -eq 0 ]] && echo '--example[run example programs instead of applications.]: :->example')
+
+	# egs_array=($(_fpm_build_dir_analysis_example))
+	# egs="(${(pj: :)egs_array})"
+
+	args=($need_example \
 			'--list[list basenames of candidates instead of runnning them.]' \
 			'--profile[selects the compilation profile for the build.]' \
 			'--target[list of application names to execute.]' \
-			$need_all\
+			$need_all \
 			'--compiler[specify a compiler name.]' \
 			'--c-compiler[specify the C compiler name.]' \
 			'--cxx-compiler[specify the C++ compiler name.]' \
@@ -437,8 +497,7 @@ _fpm_run() {
 			'--[optional arguments to pass the program(s).]')
 
 	_arguments \
-			'*:command or option:->mixed'\
-			'--example[run example programs instead of applications.]: :->example' \
+			$need_example \
 			'--list[list basenames of candidates instead of runnning them.]' \
 			'--profile[selects the compilation profile for the build.]: :->profile' \
 			'--target[list of application names to execute.]: :->target' \
@@ -454,12 +513,32 @@ _fpm_run() {
 			'--runner[A command to prefix the program execution paths with.]: :->runner' \
 			'--runner-args[an additional option to pass command-line arguments to the runner command.]: :->runnerargs' \
 			'--help[print help message and exit.]: :->help' \
-			'--[optional arguments to pass the program(s).]: :->arg'
+			'--[optional arguments to pass the program(s).]: :->arg'\
+			'*:command or option:->mixed'
+
+	# _message "state: $state"
 
 	case "$state" in
 		(mixed)
 			local -a targets
 			local -a unique
+			unique=()
+			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
+				local -a user_cmds
+				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
+				for item in "${user_cmds[@]}"; do
+					if printf '%s\n' "${words[@]}" | grep -qx -- "$item"; then
+						:
+					else
+						unique+=($item)
+					fi
+				done
+			fi
+			if [[ -n "${unique[*]}" ]]; then
+				_values 'user commands' $unique
+				return			
+			fi
+
 
 			targets=($(_fpm_build_dir_analysis))
 			unique=($(_fpm_unique "${targets[@]}"))
@@ -475,12 +554,33 @@ _fpm_run() {
 			# Needs to be improved
 			if [[ -n "${targets[*]}" ]]; then
 				if [[ "$is_there_all_flag" == 'is_false' ]]; then
-					_message "List of application names to execute."
-					compadd $targets
+					if [[ $example_with_arg -eq 0 ]]; then
+					if [[ ! "${words[*]}" =~ --* ]]; then
+						# _message "List of application names to execute."
+						compadd -V "application" -X "application" $targets
+					fi
+					fi
 				fi
-			else
-				_arguments $args
 			fi
+
+			##
+			local -a opts desc
+			local cache
+			opts=()
+			desc=()
+			for opt in ${(k)options}; do
+				if [[ $opt == '--example' ]]; then; continue; fi
+				
+				if [[ ! ${line[*]} =~ $opt ]]; then
+					opts+=$opt
+					desc+=$cache
+				fi
+			done
+
+			if [[ -n "${opts[*]}" ]]; then
+				compadd -V "option" -X "option" -d $desc $opts
+			fi
+			# _message "L577: opts: $opts"
 
 			;;
 		(target)
@@ -501,6 +601,8 @@ _fpm_run() {
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $unique
 			fi
+			# _arguments $args
+
 			;;
 		(example)
 			local -a targets
@@ -511,7 +613,8 @@ _fpm_run() {
 					_message "List of application names to execute."
 					_values 'target' $targets
 				else
-					_arguments $args	
+					# _arguments $args
+					:	
 				fi
 			fi
 			;;
