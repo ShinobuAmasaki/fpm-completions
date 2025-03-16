@@ -296,9 +296,35 @@ _fpm_get_rightmost_option() {
 		fi
 	done
 
-	# ret="${words[(r)--*]}"
+	# ret="${words[(rha)--*]}"
 	echo $ret
 
+}
+
+_fpm_make_option_candidate () {
+
+	# if [[ $words[CURRENT] != --* ]]; then
+		local -a _opts _desc
+		_opts=()
+		_desc=()
+		for opt in ${(k)options}; do
+			if [[ $opt == '--example' ]]; then; continue; fi
+			
+			if [[ ! ${line[*]} =~ $opt ]]; then
+				if [[ $1 -ne 0 && $opt == '--all' ]]; then
+					continue
+				else
+					[[ -n ${opt_args[(r)--${opt}]} ]] || _opts+=$opt
+				fi
+			fi
+		done
+
+		if [[ -n "${_opts[*]}"  ]]; then #&& ${words[CURRENT]} != '-' && ${words[CURRENT]} != '--' ]]; then
+			compadd -l -V "option" -X "option:" $_opts
+		elif  [[ $2 == 'example' ]]; then
+			compadd -l -V "option" -X "option:" $_opts
+		fi
+	# fi
 }
 
 _fpm_new() {
@@ -409,9 +435,7 @@ _fpm_run() {
 	local run_args
 	local example_with_arg
 	local need_example
-	local -a egs_array
-	local egs
-	local is_there_all_flag
+	local is_there_all_flag is_there_example_flag
 	local -a args
 	local -a opts desc
 	typeset -A options
@@ -426,7 +450,6 @@ _fpm_run() {
 			fi
 		done
 	fi
-
 
 	## Create an associative array containing all the options
 	opts=(--example --all --list --profile --target --compiler --c-compiler --cxx-compiler --archiver --flag --c-flag --cxx-flag --link-flag --runner --runner-args --help --)
@@ -451,7 +474,7 @@ _fpm_run() {
 	)
 	index=1
 	while (( index <= $#opts )); do
-		options[${opts[index]}]=${desc[index]}
+		options[${opts[index]}]="${desc[index]}"
 		((index++))
 	done
 	
@@ -477,10 +500,17 @@ _fpm_run() {
 	else
 		need_all=''
 	fi
+
 	if [[ "${words[*]}" =~ '--all' ]]; then
 		is_there_all_flag='is_true'
 	else
 		is_there_all_flag='is_false'
+	fi
+
+	if [[ "${words[*]}" =~ '--example' ]]; then
+		is_there_example_flag='is_true'
+	else
+		is_there_example_flag='is_false'
 	fi
 
 	##　Is a target name specified in the run argument?
@@ -527,7 +557,7 @@ _fpm_run() {
 			'*:command or option:->mixed'
 
 
-	# _message "state: $state"
+	_message "state: $state"
 
 	case "$state" in
 		(mixed)
@@ -602,28 +632,11 @@ _fpm_run() {
 				fi
 			fi
 
-
-			## options
-			local -a opts desc
-			local cache
-			opts=()
-			desc=()
-			for opt in ${(k)options}; do
-				if [[ $opt == '--example' ]]; then; continue; fi
-				
-				if [[ ! ${line[*]} =~ $opt ]]; then
-					opts+=$opt
-					desc+=$cache
-				fi
-			done
-
-			if [[ -n "${opts[*]}" ]]; then
-				compadd -V "option:" -X "option" -d $desc $opts
-			fi
-			# _message "L577: opts: $opts"
+			_fpm_make_option_candidate $example_with_arg mixed
 
 			;;
 		(target)
+
 			if [[ "${words[CURRENT]}" =~ '^@' ]]; then
 				local -a user_cmds
 				user_cmds=($(grep "^@" ./fpm.rsp 2>/dev/null | cut -c 1-))
@@ -633,30 +646,41 @@ _fpm_run() {
 				return
 			fi
 
-			_message "List of application names to execute."
 			local -a targets
 			local -a unique
-			targets=($(_fpm_build_dir_analysis))
+
+			if [[ is_there_example_flag == 'is_false' ]]; then
+				_message "List of application names to execute."
+				targets=($(_fpm_build_dir_analysis))
+			else
+				_message "List of example application names to execute."
+				targets=($(_fpm_build_dir_analysis_example))
+			fi
+
 			unique=($(_fpm_unique "${targets[@]}"))
 			if [[ -n "${targets[*]}" ]]; then
 				_values 'target' $unique
 			fi
-			# _arguments $args
+
 
 			;;
 		(example)
 			local -a targets
+			local ret
+			local -a all
+			
+			# example target
 			targets=($(_fpm_build_dir_analysis_example))
-
 			if [[ -n "${targets[*]}" ]]; then
 			 	if [[ $is_there_all_flag == 'is_false' ]]; then
 					_message "List of application names to execute."
-					_values 'target' $targets
-				else
-					# _arguments $args
-					:	
+					# _values 'target:' $targets
+					compadd -V "target" -X "target:" $targets
 				fi
 			fi
+
+			_fpm_make_option_candidate $example_with_arg example
+			
 			;;
 		(arg)
 			_message "Optional arguments ARG to pass the program(s)."
@@ -869,6 +893,16 @@ _fpm_install() {
 		esac
 }
 
+_fpm_clean () {
+
+	_arguments \
+	- for_skip\
+		'--skip[delete the build without prompting but skip dependencies]'\
+	- for_all \
+		'--all[delete the build without prompting including dependencies]'
+
+}
+
 _fpm() {
 	local context state state_descr line
 	typeset -A opt_args
@@ -911,11 +945,7 @@ _fpm() {
 					_message "list takes no aruguments"
 					;;
 				(clean)
-					_arguments \
-					   - for_skip\
-							'--skip[delete the build without prompting but skip dependencies]'\
-						- for_all \
-							'--all[delete the build without prompting including dependencies]'
+					_fpm_clean
 					;;
 				(publish)
 					_message "Completion for the sub-command publish is not yet provided."
