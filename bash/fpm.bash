@@ -1,8 +1,7 @@
-
 #
 # fpm-completions for Bash
 #
-# Copyright 2024, Amasaki Shinobu
+# Copyright 2024-2025, Amasaki Shinobu
 #
 # This script is distributed under the MIT license.
 
@@ -263,25 +262,6 @@ _fpm() {
                      return
                      ;;
 						*)
-							# Suggest multiple target specifications.
-							rightmost_option=$(get_rightmost_option "${words[@]}")
-							if [[ "$rightmost_option" == '' ]]; then
-								local -a targets 
-								mapfile -t targets <<< "$(build_dir_analysis)"
-								
-								# Remove already specified target from array.
-								for i in "${!targets[@]}"; do
-									for element in "${words[@]}"; do
-										if [[ "$element" == "${targets[$i]}" ]]; then
-											unset 'targets[i]'
-										fi
-									done
-								done
-								
-								COMPREPLY=( $(compgen -W '${targets[@]} ${all_opts[@]}' -- "$cur" ))
-								return
-							fi 
-
 							# Suggest options other than those already specified.
 							local opts=()
 							for opt in "${all_opts[@]}"; do
