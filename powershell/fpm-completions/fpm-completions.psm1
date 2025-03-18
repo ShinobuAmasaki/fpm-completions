@@ -1,6 +1,6 @@
-### ModuleVersion = '0.4'
-### ModuleName = 'FpmCompletions'
-### Rights: (C) 2025 Amasaki Shinobu
+### ModuleVersion = '0.3'
+### ModuleName = 'fpm-completions'
+### Rights: (C) 2024-2025 Amasaki Shinobu
 ### License: MIT license
 ### Repository: https://github.com/ShinobuAmasaki/fpm-completions
 
@@ -547,7 +547,7 @@ $FpmCompletions = {
       }
 
    } elseif ($sub -eq 'run') {
-      
+
       $exeFiles = $null
 
       if ($tokens -contains '--example') {
@@ -561,19 +561,34 @@ $FpmCompletions = {
       if ($tokens -notcontains '--all') {
 
          $condTargetHaveArg = (DoesOptionHaveArgFpm -Option '--target')
-
+         $condExampleHaveArg = (DoesOptionHaveArgFpm -Option '--example')
          if ($rightOption -eq '--target' -and -not $condTargetHaveArg) {
-            
+
             $candidateItems = @(@($exeFiles) + @('--all')) | Where-Object {$_ -like "$wordToComplete*"}
 
+         } elseif ($rightOption -eq '--example' -and -not $condExampleHaveArg) {
+
+            $candidateItems = @(@($exeFiles) + @('--all')) | Where-Object {$_ -like "$wordToComplete*"}
+
+         } elseif ($rightOption -eq '--example' -or $prevToken -in $exeFiles -or $currToken -in $exeFiles){
+
+            if ($exeFilesFiltered) {
+               $candidateItems = @(@($exeFilesFiltered) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
+            } else {
+               $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
+            }
+
          } elseif ($rightOption -eq '--target' -or $prevToken -in $exeFiles -or $currToken -in $exeFiles -or $currToken -eq $sub -or $prevToken -eq $sub) {
+
             if ($exeFilesFiltered) {
                $candidateItems = @(@($exeFilesFiltered) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
             } else {
                $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
             }
          }
+
       } else {
+
          $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
       }
       # Write-Host "L566: $candidateItems"
@@ -598,7 +613,7 @@ $FpmCompletions = {
                $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
             }
          }
-         
+
       } elseif ($sub -in $subCmdNoArg) {
          ## COMMANDs take no arguments: install, clean, manual, update, publish
          switch ($sub) {
@@ -611,10 +626,11 @@ $FpmCompletions = {
             Default {return $null}
          }
       }
+      # Write-Host "L615: $candidateItems"
    }
-
    ### for debug
-   # Write-Host "L552: candidate: $candidateItems"
+   # Write-Host "L617: $candidateItems"
+   #
    # if ($sub -eq 'run') {Write-Host "L605: exeFiles : $exeFiles"}
    # if ($sub -eq 'test') { Write-Host "L606: testFiles: $testExeFiles"}
 
@@ -667,9 +683,20 @@ $FpmCompletions = {
       }
       if (DoesOptionHaveArgFpm -Option '--example') {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--target'}
       }
       if ($tokens -contains '--target' -and $tokens -contains '--all') {
-
+         $candidateItems = $candidateItems | Where-Object { $_ -notmatch '--example'}
+      }
+      if ($tokens -contains '--example' -and $tokens -contains '--all') {
+         $candidateItems = $candidateItems | Where-Object { $_ -notmatch '--target'}
+      }
+      if ($tokens -contains '--all') {
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--target'}
+      }
+   } elseif ($sub -eq 'test') {
+      if (DoesSubCmdHaveArgFpm -sub 'test') {
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--target'}
       }
    }
    if ($tokens.Count -gt 3){
@@ -703,5 +730,6 @@ function Register-FpmCompletions {
 }
 
 function Unregister-FpmCompletions {
-
+   Register-ArgumentCompleter -CommandName fpm -ScriptBlock $null
+   Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $null
 }
