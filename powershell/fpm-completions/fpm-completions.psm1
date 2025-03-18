@@ -434,21 +434,21 @@ $FpmCompletions = {
 
    ### for debug
    # $projectRoot = FindManifestFpm
-   # Write-Host "L431:"
-   # Write-Host "L432: count:     "$tokens.Count
-   # Write-Host "L433: sub-cmd:   '$sub'"
-   # Write-Host "L434: prevToken: '$prevToken'"
-   # Write-Host "L435: currToken: '$currToken'"
-   # Write-Host "L436: project:   '$projectRoot'"
+   # Write-Host "L437:"
+   # Write-Host "L438: count:     "$tokens.Count
+   # Write-Host "L439: sub-cmd:   '$sub'"
+   # Write-Host "L440: prevToken: '$prevToken'"
+   # Write-Host "L441: currToken: '$currToken'"
+   # Write-Host "L442: project:   '$projectRoot'"
    # ##
    # $completed = UserCmdCompletedFpm -token $currToken
-   # Write-Host "L439: completed: '$completed'"
+   # Write-Host "L445: completed: '$completed'"
    # ##
    # $manifest = FindManifestFpm
    # $testFiles = FindTestNamesFpm
-   # Write-Host "L443: tests $testFiles"
-   # Write-Host "L444: manifest $manifest"
-   # Write-Host "L445: Srcs: $srcFiles"
+   # Write-Host "L449: tests $testFiles"
+   # Write-Host "L450: manifest $manifest"
+   # Write-Host "L451: Srcs: $srcFiles"
 
 
 #=================================================================================================#
@@ -460,16 +460,16 @@ $FpmCompletions = {
    $rightOption = (GetOptionRightMostFpm -Ast $commandAst)
 
    ### for debug
-   # Write-Host "L457: condArgPrev : $condArgPrev"
-   # Write-Host "L458: condArgCurr : $condArgCurr"
-   # Write-Host "L459: condPathPrev: $condPathPrev"
-   # Write-Host "L460: condPathCurr: $condPathCurr"
-   # Write-Host "L461: rightmostOpts: $rightOption"
+   # Write-Host "L463: condArgPrev : $condArgPrev"
+   # Write-Host "L464: condArgCurr : $condArgCurr"
+   # Write-Host "L465: condPathPrev: $condPathPrev"
+   # Write-Host "L466: condPathCurr: $condPathCurr"
+   # Write-Host "L467: rightmostOpts: $rightOption"
 
    $condUserCmd = $currToken -like "@*" -and $tokens.IndexOf($currToken -le 2) -and ($sub -eq 'run' -or $sub -notin $subCmds)
 
    ## for debug
-   # Write-Host "L466: condUserCmd:  $condUserCmd"
+   # Write-Host "L472: condUserCmd:  $condUserCmd"
 
    if ($condUserCmd) {
 
@@ -591,14 +591,14 @@ $FpmCompletions = {
 
          $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
       }
-      # Write-Host "L566: $candidateItems"
+      # Write-Host "L594: $candidateItems"
 
    } else {
 
       if ($sub -in $subCmdWithArg) {
          $exeFiles = $null
          ## COMMANDs take some arguments: test, new
-         # Write-Host "L573"
+         # Write-Host "L601"
 
          if ($sub -eq 'test') {
             $exeFiles = FindTestNamesFpm
@@ -626,13 +626,13 @@ $FpmCompletions = {
             Default {return $null}
          }
       }
-      # Write-Host "L615: $candidateItems"
+      # Write-Host "L629: $candidateItems"
    }
    ### for debug
-   # Write-Host "L617: $candidateItems"
+   # Write-Host "L632: $candidateItems"
    #
-   # if ($sub -eq 'run') {Write-Host "L605: exeFiles : $exeFiles"}
-   # if ($sub -eq 'test') { Write-Host "L606: testFiles: $testExeFiles"}
+   # if ($sub -eq 'run') {Write-Host "L634: exeFiles : $exeFiles"}
+   # if ($sub -eq 'test') { Write-Host "L635: testFiles: $testExeFiles"}
 
    ### HELP handler
    $len = $commandAst.Extent.Text.Length
@@ -656,7 +656,7 @@ $FpmCompletions = {
       return $null
    }
 
-   # Write-Host "L630: candidate: $candidateItems"
+   # Write-Host "L659: candidate: $candidateItems"
 #=================================================================================================#
 
    ### Filter just before completion.
@@ -706,7 +706,7 @@ $FpmCompletions = {
 
 #=================================================================================================#
    ### for debug
-   # Write-Host "L669: candidate: $candidateItems"
+   # Write-Host "L709: candidate: $candidateItems"
 
    foreach ($item in ($candidateItems | Where-Object {$_ -notin $tokens}))
    {
