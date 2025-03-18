@@ -551,9 +551,9 @@ $FpmCompletions = {
       }
 
       $exeFilesFiltered = @($exeFiles | Where-Object {$_ -notin $tokens})
-
+      
       if ($tokens -notcontains '--all') {
-         if ($rightOption -eq '--target' -or $currToken -in $exeFiles) {
+         if ($rightOption -eq '--target' -or $prevToken -in $exeFiles -or $currToken -in $exeFiles -or $currToken -eq $sub -or $prevToken -eq $sub) {
             if ($exeFilesFiltered) {
                $candidateItems = @(@($exeFilesFiltered) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
             } else {
@@ -570,8 +570,8 @@ $FpmCompletions = {
       if ($sub -in $subCmdWithArg) {
          $exeFiles = $null
          ## COMMANDs take some arguments: test, new
-         Write-Host "L573"
-         
+         # Write-Host "L573"
+
          if ($sub -eq 'test') {
             $exeFiles = FindTestNamesFpm
             if ($exeFiles) {
@@ -602,8 +602,8 @@ $FpmCompletions = {
 
    ### for debug
    # Write-Host "L552: candidate: $candidateItems"
-   # if ($sub -eq 'run') {Write-Host "L516: exeFiles : $exeFiles"}
-   # if ($sub -eq 'test') { Write-Host "L617: testFiles: $testExeFiles"}
+   # if ($sub -eq 'run') {Write-Host "L605: exeFiles : $exeFiles"}
+   # if ($sub -eq 'test') { Write-Host "L606: testFiles: $testExeFiles"}
 
    ### HELP handler
    $len = $commandAst.Extent.Text.Length
@@ -627,7 +627,7 @@ $FpmCompletions = {
       return $null
    }
 
-   # Write-Host "L557: candidate: $candidateItems"
+   # Write-Host "L630: candidate: $candidateItems"
 #=================================================================================================#
 
    ### Filter just before completion.
@@ -663,10 +663,10 @@ $FpmCompletions = {
       ## Do not include `--help` flag in suggestions if there are more than 3 tokens.
       $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--help'}
    }
-   # Write-Host "L660: $candidateItems"
+
 #=================================================================================================#
    ### for debug
-   # Write-Host "L608: candidate: $candidateItems"
+   # Write-Host "L669: candidate: $candidateItems"
 
    foreach ($item in ($candidateItems | Where-Object {$_ -notin $tokens}))
    {
