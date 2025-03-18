@@ -120,12 +120,12 @@ function DoesOptionHaveArgFpm {
    $lastIndex = $tokens.Count -1
    $index = [Array]::IndexOf($tokens, $Option)
 
-   if ($index -ge 0) {
+   if ($index -gt 0) {
       if ($index -ne $lastIndex)  {
-         if (($tokens[$index+1] -notin $wholeOptions) -and  -not ($tokens[$index+1] -match '^--.*')) {
+         if (($tokens[$index+1] -notin $wholeOptions) -and  -not ($tokens[$index+1] -match '^-.*')) {
             return $true
          }
-      }
+      } else {return $false}
    }
    return $false
 }
@@ -410,7 +410,7 @@ function GetOptionRightMostFpm {
 
    $tokens = @($Ast.CommandElements | ForEach-Object {$_.Value})
 
-   $rightMostOption = @($tokens | Where-Object { $_ -like '--*'})[-1]
+   $rightMostOption = @($tokens | Where-Object { $_ -match '--.*'})[-1]
 
    return $rightMostOption
 
@@ -557,9 +557,16 @@ $FpmCompletions = {
       }
 
       $exeFilesFiltered = @($exeFiles | Where-Object {$_ -notin $tokens})
-      
+
       if ($tokens -notcontains '--all') {
-         if ($rightOption -eq '--target' -or $prevToken -in $exeFiles -or $currToken -in $exeFiles -or $currToken -eq $sub -or $prevToken -eq $sub) {
+
+         $condTargetHaveArg = (DoesOptionHaveArgFpm -Option '--target')
+
+         if ($rightOption -eq '--target' -and -not $condTargetHaveArg) {
+            
+            $candidateItems = @(@($exeFiles) + @('--all')) | Where-Object {$_ -like "$wordToComplete*"}
+
+         } elseif ($rightOption -eq '--target' -or $prevToken -in $exeFiles -or $currToken -in $exeFiles -or $currToken -eq $sub -or $prevToken -eq $sub) {
             if ($exeFilesFiltered) {
                $candidateItems = @(@($exeFilesFiltered) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
             } else {
@@ -693,4 +700,8 @@ $FpmCompletions = {
 function Register-FpmCompletions {
    Register-ArgumentCompleter -CommandName fpm -ScriptBlock $FpmCompletions
    Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $FpmCompletions
+}
+
+function Unregister-FpmCompletions {
+
 }
