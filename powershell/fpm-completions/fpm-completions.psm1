@@ -1,3 +1,9 @@
+### ModuleVersion = '0.4'
+### ModuleName = 'FpmCompletions'
+### Rights: (C) 2025 Amasaki Shinobu
+### License: MIT license
+### Repository: https://github.com/ShinobuAmasaki/fpm-completions
+
 $subCmdNoArg = @("build", "clean", "install", "publish", "list", "manual", "update")
 $subCmdWithArg = @("help", "new", "run", "test", "list")
 
@@ -684,5 +690,7 @@ $FpmCompletions = {
 
 }
 
-Register-ArgumentCompleter -CommandName fpm -ScriptBlock $FpmCompletions
-Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $FpmCompletions
+function Register-FpmCompletions {
+   Register-ArgumentCompleter -CommandName fpm -ScriptBlock $FpmCompletions
+   Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $FpmCompletions
+}
