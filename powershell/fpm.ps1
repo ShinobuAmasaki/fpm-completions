@@ -12,6 +12,11 @@ $optionsWithoutSubCommand = @(
    '--help'
 )
 
+$optionsWithMultipleArgFpm =@(
+   '--example',
+   '--target'
+)
+
 $optionsWithArgFpm = @(
    '--archiver',
    '--compiler',
@@ -24,7 +29,7 @@ $optionsWithArgFpm = @(
    '--profile',
    '--runner',
    '--runner-args',
-   '--target',
+   # '--target',
    '--dump',
    '--registry-cache',
    '--token',
@@ -50,7 +55,7 @@ $optionsNoArgFpm = @(
    '--app',
    '--backfill',
    '--bare',
-   '--example',
+   # '--example',
    '--full',
    '--src',
    '--lib',
@@ -65,7 +70,7 @@ $optionsNoArgFpm = @(
    '--show-upload-data'
 )
 
-$wholeOptions = @($optionsWithArgFpm + $optionsWithPathFpm + $optionsNoArgFpm)
+$wholeOptions = @($optionsWithArgFpm + $optionsWithMultipleArgFpm + $optionsWithPathFpm + $optionsNoArgFpm)
 
 function AvailableCommandsFpm {
    param (
@@ -153,6 +158,12 @@ function DoesOptionTakePathFpm {
       [string]$flag
    )
    return ($flag -in $optionsWithPathFpm)
+}
+function DoesOptionTakeMultiArgFpm {
+   param (
+      [string]$flag
+   )
+   return ($flag -in $optionsWithMultipleArgFpm)
 }
 
 function GetOptionsFpm {
@@ -308,21 +319,21 @@ function FindProgramNamesFpm {
    $rootpath = FindManifestFpm
    $main = get-content (Join-Path $rootpath "fpm.toml") | Select-String '^name\s*=\s*"(.*?)"' | ForEach-Object {$_.Matches.Groups[1].Value}
    $appSrcFiles = @(Get-ChildItem -Path (Join-Path $rootpath app) -Recurse |
-   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}| 
+   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}|
    ForEach-Object { $_.BaseName } |
    Sort-Object -Unique)
 
    if ($appSrcFiles -contains "main") {
       $appSrcFiles = $appSrcFiles | ForEach-Object { if ($_ -eq "main") { $main } else { $_ } }
    }
-   
+
    return $appSrcFiles
 }
 
 function FindTestNamesFpm {
    $rootpath = FindManifestFpm
    $testSrcFiles = @(Get-ChildItem -Path (Join-Path $rootpath test) -Recurse |
-   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}| 
+   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}|
    ForEach-Object { $_.BaseName } |
    Sort-Object -Unique)
    return $testSrcFiles
@@ -331,7 +342,7 @@ function FindTestNamesFpm {
 function FindExampleNamesFpm {
    $rootpath = FindManifestFpm
    $exampleSrcFiles = @(Get-ChildItem -Path (Join-Path $rootpath example) -Recurse |
-   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}| 
+   Where-Object {$_.Extension -match '^\.(f90|F90|f|F)$'}|
    ForEach-Object { $_.BaseName } |
    Sort-Object -Unique)
    return $exampleSrcFiles
@@ -339,7 +350,7 @@ function FindExampleNamesFpm {
 
 function OptionCompletionFpm {
    param(
-      $flag, 
+      $flag,
       $word2comp
    )
 
@@ -386,7 +397,20 @@ function OptionCompletionFpm {
    return $candidateItems
 }
 
-$fpmCompletions = {
+function GetOptionRightMostFpm {
+   param(
+      [System.Management.Automation.Language.CommandAst]$Ast
+   )
+
+   $tokens = @($Ast.CommandElements | ForEach-Object {$_.Value})
+
+   $rightMostOption = @($tokens | Where-Object { $_ -like '--*'})[-1]
+
+   return $rightMostOption
+
+}
+
+$FpmCompletions = {
    param($wordToComplete, $commandAst, $cursorPosition);
 
    $fpmCommands = @("fpm", "fpm.exe", "fpm-*")
@@ -404,39 +428,42 @@ $fpmCompletions = {
 
    ### for debug
    # $projectRoot = FindManifestFpm
-   # Write-Host "L407:"
-   # Write-Host "L408: count:     "$tokens.Count
-   # Write-Host "L409: sub-cmd:   '$sub'"
-   # Write-Host "L410: prevToken: '$prevToken'"
-   # Write-Host "L411: currToken: '$currToken'"
-   # Write-Host "L412: project:   '$projectRoot'"
+   # Write-Host "L431:"
+   # Write-Host "L432: count:     "$tokens.Count
+   # Write-Host "L433: sub-cmd:   '$sub'"
+   # Write-Host "L434: prevToken: '$prevToken'"
+   # Write-Host "L435: currToken: '$currToken'"
+   # Write-Host "L436: project:   '$projectRoot'"
    # ##
    # $completed = UserCmdCompletedFpm -token $currToken
-   # Write-Host "L415: completed: '$completed'"
+   # Write-Host "L439: completed: '$completed'"
    # ##
    # $manifest = FindManifestFpm
    # $testFiles = FindTestNamesFpm
-   # Write-Host "L419: tests $testFiles"
-   # Write-Host "L420: manifest $manifest"
-   # Write-Host "L421: Srcs: $srcFiles" 
+   # Write-Host "L443: tests $testFiles"
+   # Write-Host "L444: manifest $manifest"
+   # Write-Host "L445: Srcs: $srcFiles"
+
 
 #=================================================================================================#
-   
+
    $condArgPrev = (DoesOptionTakeArgFpm -flag $prevToken)
    $condArgCurr = (DoesOptionTakeArgFpm -flag $currToken)
    $condPathPrev = (DoesOptionTakePathFpm -flag $prevToken)
    $condPathCurr = (DoesOptionTakePathFpm -flag $currToken)
-   
-   ## for debug
-   # Write-Host "L431: condArgPrev : $condArgPrev"
-   # Write-Host "L432: condArgCurr : $condArgCurr"
-   # Write-Host "L433: condPathPrev: $condPathPrev"
-   # Write-Host "L434: condPathCurr: $condPathCurr"
-   
+   $rightOption = (GetOptionRightMostFpm -Ast $commandAst)
+
+   ### for debug
+   # Write-Host "L457: condArgPrev : $condArgPrev"
+   # Write-Host "L458: condArgCurr : $condArgCurr"
+   # Write-Host "L459: condPathPrev: $condPathPrev"
+   # Write-Host "L460: condPathCurr: $condPathCurr"
+   # Write-Host "L461: rightmostOpts: $rightOption"
+
    $condUserCmd = $currToken -like "@*" -and $tokens.IndexOf($currToken -le 2) -and ($sub -eq 'run' -or $sub -notin $subCmds)
 
    ## for debug
-   # Write-Host "L439: condUserCmd:  $condUserCmd"
+   # Write-Host "L466: condUserCmd:  $condUserCmd"
 
    if ($condUserCmd) {
 
@@ -475,8 +502,8 @@ $fpmCompletions = {
          if ($candidateItems -eq $null) {
             $candidateItems = GetOptionsFpm -Subcmd $sub -Ast $commandAst
          }
-         
-      } 
+
+      }
 
    } elseif ($condPathPrev -or $condPathCurr){
 
@@ -498,7 +525,7 @@ $fpmCompletions = {
             Default {$subdir = $null}
          }
          $dir = Join-Path ".local" $subdir
-         
+
          ## Customized candidate path
          $customPaths = [System.Management.Automation.CompletionResult]::new(
             (Join-Path $HOME $dir),
@@ -506,34 +533,59 @@ $fpmCompletions = {
             "ParameterValue",
             "Local custom path for fpm installation"
          )
-         
+
          return $customPaths
 
       } else {
          $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
       }
 
+   } elseif ($sub -eq 'run') {
+      
+      $exeFiles = $null
+
+      if ($tokens -contains '--example') {
+         $exeFiles = FindExampleNamesFpm
+      } else {
+         $exeFiles = FindProgramNamesFpm
+      }
+
+      $exeFilesFiltered = @($exeFiles | Where-Object {$_ -notin $tokens})
+
+      if ($tokens -notcontains '--all') {
+         if ($rightOption -eq '--target' -or $currToken -in $exeFiles) {
+            if ($exeFilesFiltered) {
+               $candidateItems = @(@($exeFilesFiltered) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
+            } else {
+               $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
+            }
+         }
+      } else {
+         $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
+      }
+      # Write-Host "L566: $candidateItems"
+
    } else {
 
       if ($sub -in $subCmdWithArg) {
          $exeFiles = $null
-         ## COMMANDs take some arguments: build, run, test, new
-         if (($sub -eq 'run') -and ($tokens -contains '--example')) {
-            $exeFiles = FindExampleNamesFpm
-
-         } elseif ($sub -eq 'run') {
-            $exeFiles = FindProgramNamesFpm
-
-         } elseif ($sub -eq 'test') {
+         ## COMMANDs take some arguments: test, new
+         Write-Host "L573"
+         
+         if ($sub -eq 'test') {
             $exeFiles = FindTestNamesFpm
+            if ($exeFiles) {
+               $candidateItems = @(@($exeFiles) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
+            } else {
+               $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object { $_ -like "$wordToComplete*"}
+            }
+         } elseif ($sub -eq 'new') {
+            $is_there_project_name = (DoesSubCmdHaveArgFpm -sub $sub)
+            if ($is_there_project_name) {
+               $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object {$_ -like "$wordToComplete*"}
+            }
          }
-
-         if ($exeFiles) {
-            $candidateItems = @(@($exeFiles) + @(GetOptionsFpm -Subcmd $sub -Ast $commandAst)) | Where-Object { $_ -like "$wordToComplete*"}
-         } else {
-            $candidateItems = @(GetOptionsFpm -Subcmd $sub -Ast $commandAst) | Where-Object { $_ -like "$wordToComplete*"}
-         }
-
+         
       } elseif ($sub -in $subCmdNoArg) {
          ## COMMANDs take no arguments: install, clean, manual, update, publish
          switch ($sub) {
@@ -565,7 +617,7 @@ $fpmCompletions = {
 
    ### SUBCOMMAND COMLETION # IMPORTANT ##
    if ($condUserCmd) {
- 
+
    } elseif (($currToken -in $fpmCommands -and $tokens.Count -eq 1) -or ($prevToken -in $fpmCommands -and $tokens.Count -eq 2 -and $currToken -notin $subCmds)) {
       $candidateItems = @($subCmds + $optionsWithoutSubCommand) | Where-Object { $_ -like "$wordToComplete*"}
    }
@@ -577,7 +629,7 @@ $fpmCompletions = {
 
    # Write-Host "L557: candidate: $candidateItems"
 #=================================================================================================#
-   
+
    ### Filter just before completion.
    if ($currToken -eq '') {
       ## For flags that takes a string as an argument, no completion is performed.
@@ -592,21 +644,26 @@ $fpmCompletions = {
 
    ## Handling conflicting options
    if ($sub -eq 'run'){
+      if (DoesSubCmdHaveArgFpm -sub 'run') {
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--example'}
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--target'}
+         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
+      }
       if (DoesOptionHaveArgFpm -Option '--target' ) {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
       }
-      if (DoesSubCmdHaveArgFpm -sub 'run') {
-         $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--example'}
-      }
       if (DoesOptionHaveArgFpm -Option '--example') {
          $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--all'}
+      }
+      if ($tokens -contains '--target' -and $tokens -contains '--all') {
+
       }
    }
    if ($tokens.Count -gt 3){
       ## Do not include `--help` flag in suggestions if there are more than 3 tokens.
       $candidateItems = $candidateItems | Where-Object {$_ -notmatch '--help'}
    }
-
+   # Write-Host "L660: $candidateItems"
 #=================================================================================================#
    ### for debug
    # Write-Host "L608: candidate: $candidateItems"
@@ -627,5 +684,5 @@ $fpmCompletions = {
 
 }
 
-Register-ArgumentCompleter -CommandName fpm -ScriptBlock $fpmCompletions
-Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $fpmCompletions
+Register-ArgumentCompleter -CommandName fpm -ScriptBlock $FpmCompletions
+Register-ArgumentCompleter -CommandName fpm.exe -ScriptBlock $FpmCompletions
